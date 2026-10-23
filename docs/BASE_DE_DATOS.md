@@ -295,10 +295,13 @@ Si llega la misma clave con el mismo cuerpo → misma respuesta; con otro cuerpo
 - Pendiente: consulta automática del estado en SUNAT (`billConsultService`, requiere el usuario SOL
   de producción). Hoy los rechazos se detectan y avisan al momento del envío.
 
-### Devoluciones
-- `devoluciones`: `comprobante_origen_id`, `nota_credito_id`, `tipo` (`TOTAL`, `PARCIAL`).
-- `devolucion_items`: `item_origen_id`, `cantidad`, `destino` (`REINGRESO`, `DANADO`).
-- `reembolsos`: `devolucion_id`, `monto`, `medio`, `fecha`.
+### Devoluciones — programado (`012_devoluciones.sql`)
+- `devoluciones`: `comprobante_origen_id`, `nota_credito_id` (única), `tipo` (`TOTAL`, `PARCIAL`),
+  `motivo`, quién y cuándo.
+- `devolucion_items`: `item_orden` (línea del comprobante), `cantidad`, `destino` (`REINGRESO`, `DANADO`).
+- `reembolsos`: `devolucion_id`, `monto`, `medio` (los mismos de `pagos`), `referencia`, `fecha`.
+- Las tres son solo inserción. Lo ya devuelto se cuenta solo con notas de crédito vigentes
+  (si SUNAT rechaza una, esas unidades se pueden volver a devolver).
 
 ### Crédito fiscal y SIRE
 - `sire_propuestas`: `periodo`, `archivo_id`, `importado_en`.
