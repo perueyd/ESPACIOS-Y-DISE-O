@@ -42,6 +42,7 @@ pdfDeComprobante()           src/comprobantes/pdf-comprobante.ts → src/pdf/rep
 | `src/empresas/` | Alta y configuración de empresas | Sí |
 | `src/cobros/` | Pagos, saldo y cuotas | Sí |
 | `src/inventario/` | Productos, movimientos de stock, compras y costo promedio | Sí |
+| `src/devoluciones/` | Devolución = nota de crédito + stock + reembolso | Sí |
 | `src/reportes/` | Resumen del día, margen semanal, historial de cliente (solo lectura) | Sí |
 | `src/config.ts` | Única lectura de variables de entorno | No |
 | `db/migraciones/` | Estructura de la BD, en orden y sin editar las ya aplicadas | — |

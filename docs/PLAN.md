@@ -535,7 +535,23 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
 - Los comandos de consola leen `.env` solos.
 - Guía para el dueño: `docs/PUBLICAR.md`. Publicar sigue siendo BETA; producción, aparte.
 
-## 16. Decisiones que siguen abiertas
+## 16. Devoluciones (resultado)
+
+- **Un paso:** `npm run devolucion -- --comprobante B001-15 --items 1:1 --motivo "…" [--danados 1]
+  [--reembolso YAPE]` emite la nota de crédito, devuelve el stock y registra el reembolso.
+- **Motivo automático:** `06` (devolución total) si vuelve todo de una vez, `07` (por ítem) si no.
+- **Con descuento global** se devuelve lo que el cliente pagó, no el precio de lista; una
+  devolución total devuelve exactamente el importe del comprobante.
+- **Nunca más de lo vendido:** se descuenta lo ya devuelto, con un candado por comprobante
+  (probado con dos devoluciones simultáneas). Solo sobre comprobantes aceptados por SUNAT.
+- **Producto dañado:** la nota se emite igual, pero no regresa al stock vendible (ajuste con motivo).
+- **Reintentar es seguro:** cada devolución lleva su clave; un corte no emite dos notas.
+- **Error corregido (de la fase 8):** si SUNAT rechazaba una venta, su stock quedaba descontado.
+  Ahora todo comprobante rechazado o anulado revierte su stock, una sola vez, en un solo lugar.
+- Pendiente para cuando la tienda lo necesite: devoluciones desde la API y el panel de la tienda.
+- 280 pruebas pasando y `npm run analizar` limpio.
+
+## 17. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 

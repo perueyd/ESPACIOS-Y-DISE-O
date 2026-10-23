@@ -303,6 +303,8 @@ async function cambiarEstado(
     `INSERT INTO comprobante_eventos (comprobante_id, estado_anterior, estado_nuevo, detalle) VALUES ($1, $2, $3, $4)`,
     [comprobanteId, r.rows[0]?.anterior ?? null, nuevo, detalle],
   );
+  // Rechazado o anulado: lo que movió en el stock (venta, devolución) se revierte.
+  if (nuevo === 'RECHAZADO' || nuevo === 'ANULADO') await revertirStockDe(tx, comprobanteId);
   // Si es una nota de crédito, su estado cambia el saldo del comprobante que modifica.
   if (r.rows[0]?.referencia) await recalcularCobro(tx, r.rows[0].referencia as string);
 }
@@ -473,7 +475,6 @@ async function consultarTicket(db: Db, s: ServiciosEnvio, t: Trabajo): Promise<D
     }
     await tx.query(`UPDATE ${d.tabla} SET estado = 'ACEPTADO', sunat_codigo = $2, sunat_mensaje = $3 WHERE id = $1`, [d.id, cdr.codigo, cdr.descripcion]);
     for (const it of d.comprobantes) {
-      await revertirStockDe(tx, it.id);
       await cambiarEstado(tx, it.id, 'ANULADO', `Anulación aceptada por SUNAT (${idResumen(d.prefijo, d.fechaGeneracion, d.correlativo)})`, { codigo: cdr.codigo, mensaje: cdr.descripcion });
     }
   });

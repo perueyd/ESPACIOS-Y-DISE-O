@@ -11,10 +11,12 @@ de baja directamente a SUNAT (SEE - Del Contribuyente), sin proveedores externos
 | 2. Generación de XML | ✅ Aprobada |
 | 3. Firma digital | ✅ Aprobada |
 | 4. Envío a SUNAT beta | ✅ Aprobada (prueba real en beta superada) |
-| 5. PDF con QR | ✅ Lista para revisión (A4 y ticket 80 mm) |
-| 6. API y conexión con la tienda | ✅ Lista para revisión |
-| 7. Cobros y estado de pago | ✅ Lista para revisión |
-| 8. Inventario, compras y margen | ✅ Lista para revisión |
+| 5. PDF con QR | ✅ Aprobada (A4 y ticket 80 mm) |
+| 6. API y conexión con la tienda | ✅ Aprobada (descuento global probado en beta) |
+| 7. Cobros y estado de pago | ✅ Aprobada |
+| 8. Inventario, compras y margen | ✅ Aprobada |
+| 9. Listo para publicar (Supabase + Render) | ✅ Lista: falta que la publiques (`docs/PUBLICAR.md`) |
+| 10. Devoluciones | ✅ Lista para revisión |
 
 Hoy el sistema valida, calcula el IGV, numera sin saltos, guarda en PostgreSQL, genera
 el XML, lo firma y lo envía a SUNAT **beta** con reintentos automáticos. Producción está
@@ -93,6 +95,7 @@ npm run inventario -- compra   --ruc 20XXXXXXXXX --archivo compra.json   # factu
 npm run inventario -- stock    --ruc 20XXXXXXXXX
 npm run reporte -- margen      --ruc 20XXXXXXXXX                         # margen de la semana (estimado)
 npm run reporte -- cliente     --ruc 20XXXXXXXXX --documento 12345678
+npm run devolucion -- --ruc 20XXXXXXXXX --comprobante B001-15 --items 1:1 --motivo "Cliente desistió" --reembolso YAPE
 ```
 Detalles y formato del JSON en el encabezado de `scripts/inventario.ts` y `scripts/reporte.ts`.
 
@@ -125,6 +128,7 @@ Publicar NO es pasar a producción en SUNAT: sigue en BETA hasta tu autorizació
 | `src/empresas/` | Alta y configuración de empresas |
 | `src/cobros/` | Pagos, saldo, cuotas y vencimientos |
 | `src/inventario/` | Productos, stock y compras a proveedores |
+| `src/devoluciones/` | Devoluciones: nota de crédito, stock y reembolso |
 | `src/reportes/` | Resumen del día, margen semanal e historial de clientes |
 | `db/migraciones/` | Estructura de la base de datos (SQL) |
 | `tests/` | Pruebas automáticas |

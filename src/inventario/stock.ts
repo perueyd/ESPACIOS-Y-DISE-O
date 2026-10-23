@@ -51,12 +51,16 @@ export async function moverStockPorComprobante(
   await revisarStock(tx, d.empresaId, afectados);
 }
 
-/** Al anularse un comprobante en SUNAT, sus movimientos se revierten (sin borrar nada). */
+/**
+ * Si SUNAT rechaza el comprobante o se anula, sus movimientos se revierten con el
+ * movimiento contrario (sin borrar nada). Una sola vez: llamarla de nuevo no hace nada.
+ */
 export async function revertirStockDe(tx: Tx, comprobanteId: string): Promise<void> {
   const r = await tx.query(
     `INSERT INTO movimientos_stock (empresa_id, producto_id, tipo, cantidad, costo_unitario, comprobante_id, motivo)
-     SELECT empresa_id, producto_id, 'ANULACION', -cantidad, costo_unitario, comprobante_id, 'Comprobante anulado en SUNAT'
-     FROM movimientos_stock WHERE comprobante_id = $1 AND tipo IN ('VENTA', 'DEVOLUCION')
+     SELECT empresa_id, producto_id, 'ANULACION', -cantidad, costo_unitario, comprobante_id, 'Comprobante rechazado o anulado en SUNAT'
+     FROM movimientos_stock m WHERE comprobante_id = $1 AND tipo IN ('VENTA', 'DEVOLUCION', 'AJUSTE')
+       AND NOT EXISTS (SELECT 1 FROM movimientos_stock a WHERE a.comprobante_id = $1 AND a.tipo = 'ANULACION')
      RETURNING empresa_id, producto_id`,
     [comprobanteId],
   );
