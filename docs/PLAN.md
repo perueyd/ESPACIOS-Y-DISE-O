@@ -1,6 +1,6 @@
 # Plan del facturador electrónico — Fase 1 (plan y diseño)
 
-> Estado: fases 1, 2 y 3 aprobadas; fase 4 lista para revisión (ver sección 9).
+> Estado: fases 1, 2 y 3 aprobadas; fase 4 lista para revisión, prueba real en beta superada (ver sección 9).
 > Fecha: 23-oct-2026.
 
 ---
@@ -330,14 +330,28 @@ después de tomar el bloqueo.
   `npm run cola:procesar` (una vuelta de la cola, para el cron).
 - **187 pruebas automáticas** pasando, estables en varias corridas seguidas.
 
-**Lo que falta: la prueba REAL en SUNAT beta.** Desde este entorno no se puede llegar
-a SUNAT. Todo lo de arriba está probado contra el SUNAT simulado, que imita el formato
-real pero **no reemplaza** a SUNAT. La prueba real está lista en `npm run sunat:beta`
-y confirmará:
+**Prueba REAL en SUNAT beta: superada (23-oct-2026).** El dueño la ejecutó desde su
+computadora con `npm run sunat:beta` (RUC de Corporación Agamenón + MODDATOS). SUNAT
+respondió código 0 ("ha sido aceptada") en los 11 envíos:
 
-1. Que SUNAT acepta nuestros XML (boleta, factura, crédito, nota de crédito, baja).
-2. SHA1 vs SHA-256.
-3. El código para boletas sin cliente identificado.
+| Comprobante | SHA1 | SHA256 |
+|---|---|---|
+| Boleta con DNI | ✅ | ✅ |
+| Boleta sin cliente identificado (tipo de documento `0`) | ✅ | ✅ |
+| Factura al contado | ✅ | ✅ |
+| Factura al crédito (2 cuotas) | ✅ | ✅ |
+| Nota de crédito de factura | ✅ | ✅ |
+| Comunicación de baja (ticket + consulta) | ✅ | — |
+
+Esto confirma:
+
+- La estructura de nuestros XML y la firma digital.
+- Que SUNAT acepta firmas **SHA-256**. Se recomienda usar `FIRMA_ALGORITMO=SHA256` en producción,
+  más seguro que SHA1, y confirmarlo con el primer envío real.
+- Que el tipo de documento `0` sirve para boletas sin cliente identificado.
+
+Ojo: beta revisa la estructura, no si los datos existen. Por ejemplo, no comprueba que
+el RUC del cliente esté activo. Producción puede tener validaciones adicionales.
 
 **Pendiente para producción** ⚠️
 

@@ -10,7 +10,7 @@ de baja directamente a SUNAT (SEE - Del Contribuyente), sin proveedores externos
 | 1. Plan y diseño de base de datos | ✅ Aprobada |
 | 2. Generación de XML | ✅ Aprobada |
 | 3. Firma digital | ✅ Aprobada |
-| 4. Envío a SUNAT beta | ✅ Lista para revisión (falta la prueba real en beta) |
+| 4. Envío a SUNAT beta | ✅ Lista para revisión (prueba real en beta superada) |
 | 5. PDF con QR | Pendiente |
 | 6. API y conexión con la tienda | Pendiente |
 
