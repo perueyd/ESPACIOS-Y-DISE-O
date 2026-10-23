@@ -11,10 +11,11 @@
 certificados/
 secrets/
 
-# Comprobantes generados (se guardan en almacenamiento seguro, no en el repo)
-storage/
-xml/
-cdr/
+# Comprobantes generados (se guardan en almacenamiento seguro, no en el repo).
+# La "/" inicial limita la regla a la raíz: así no se ignoran src/xml/ ni src/almacen/.
+/storage/
+/xml/
+/cdr/
 
 # Node / build
 node_modules/
@@ -28,8 +29,8 @@ coverage/
 Thumbs.db
 
 # Archivos generados localmente (XML firmados, CDR)
-almacen/
+/almacen/
 *.whl
 
 # Resultados de pruebas contra SUNAT beta
-resultados-beta/
+/resultados-beta/
