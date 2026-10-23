@@ -218,7 +218,7 @@ se puede cambiar cualquiera sin rehacer el trabajo):
 
 | Pregunta | Decisión provisional |
 |---|---|
-| Repositorio | Seguimos en este repositorio; se puede mover más adelante sin perder nada. |
+| Repositorio | Resuelto: renombrado a `facturador-sunat` (23/10/2026). |
 | Base de datos | Cualquier PostgreSQL 15 o superior (Supabase y Neon cumplen). |
 | Envío de boletas | Una por una (el diseño también soporta resumen diario, que se usa para anular boletas). |
 | Series | Compartidas entre marcas: `F001`, `B001`, `FC01`, `BC01`. La marca queda registrada en cada comprobante. |
@@ -505,15 +505,10 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 
 
-1. **Repositorio:** el prompt pide un proyecto nuevo e independiente, pero este
-   repositorio se llama `espacios-y-dise-o` (nombre de una marca). ¿Lo usamos para
-   el facturador o creas uno nuevo (ej. `facturador-sunat`) y movemos estos
-   documentos allá?
-2. **Base de datos:** ¿Neon o Supabase? (recomiendo **Supabase**: incluye `pg_cron`
+1. **Base de datos:** ¿Neon o Supabase? (recomiendo **Supabase**: incluye `pg_cron`
    para la cola y almacenamiento de archivos en el mismo lugar).
-3. **Boletas:** ¿envío una por una (recomendado: CDR inmediato) o resumen diario?
+2. **Boletas:** ¿envío una por una (recomendado: CDR inmediato) o resumen diario?
    Las anulaciones de boletas igual irán por resumen diario.
-4. **Series:** propuesta `B001` (boletas), `F001` (facturas), `BC01`/`FC01`
+3. **Series:** propuesta `B001` (boletas), `F001` (facturas), `BC01`/`FC01`
    (notas de crédito de boleta/factura). ¿Una serie por marca o compartidas?
-5. **Régimen del RUC 10** (taxi): ¿Nuevo RUS, RER, MYPE o General?
-6. **PDF:** ¿A4, ticket 80 mm o ambos?
+4. **Régimen del RUC 10** (taxi): ¿Nuevo RUS, RER, MYPE o General?

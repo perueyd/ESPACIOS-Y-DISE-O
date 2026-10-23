@@ -19,9 +19,8 @@ Sirve para confirmar lo que no se puede comprobar sin SUNAT:
 Necesitas [Node.js 22](https://nodejs.org) (descarga la versión "LTS") y Git.
 
 ```bash
-git clone https://github.com/perueyd/ESPACIOS-Y-DISE-O.git
-cd ESPACIOS-Y-DISE-O
-git checkout claude/new-session-qhfy0v
+git clone https://github.com/perueyd/facturador-sunat.git
+cd facturador-sunat
 npm install
 npm run sunat:beta -- --ruc 20XXXXXXXXX      # tu RUC 20
 ```
