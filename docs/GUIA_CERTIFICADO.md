@@ -14,8 +14,10 @@ electrónicos**. Dura **3 años**.
 
 - [ ] RUC **activo** y domicilio fiscal **habido**.
 - [ ] Estar afecto al **Impuesto a la Renta de tercera categoría** (empresas y negocios).
-- [ ] Ingresos dentro del tope que fija la norma (300 UIT ⚠️; la norma es de 2020,
-      confirma el monto vigente en SOL o con tu contador).
+- [ ] Ingresos **que no superen** 300 UIT al año. Es un **máximo**, no un mínimo:
+      si vendes menos, calificas. Equivale a unos S/ 1,260,000 (UIT de 2019, la que
+      cita la norma) o S/ 1,650,000 (UIT de 2026). ⚠️ La norma es de 2020: confirma con
+      tu contador qué año de ingresos se revisa.
 - [ ] No tener ya un CDT vigente (y no haber obtenido más de dos).
 - [ ] No estar inscrito como OSE ni como PSE.
 - [ ] Tener tu **Clave SOL principal** a la mano (este trámite lo haces tú, el titular).
