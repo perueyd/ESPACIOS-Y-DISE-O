@@ -500,7 +500,26 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
   el cálculo del saldo y la búsqueda de empresa por RUC quedaron en un solo lugar.
 - 256 pruebas pasando y `npm run analizar` limpio.
 
-## 14. Decisiones que siguen abiertas
+## 14. Descuento global (preparación para conectar la tienda)
+
+- La tienda cobra con cupones y ofertas automáticas. El comprobante debe decir **exactamente** lo
+  cobrado, así que la API acepta `descuento` (con IGV) y lo emite como **descuento global que
+  afecta la base imponible** (catálogo 53, código `02`).
+- Cálculo: total gravado con IGV − descuento = lo cobrado; de ahí se separan base neta e IGV con
+  el mismo criterio de los ítems. En el XML: `cac:AllowanceCharge` (02, monto sin IGV, base bruta,
+  factor solo si reproduce el monto), base gravada e IGV netos, `LineExtensionAmount` neto y sin
+  `AllowanceTotalAmount` (ese es para descuentos que NO afectan la base).
+- Fuentes (consultadas el 23/10/2026; el portal de SUNAT no es accesible desde este entorno):
+  reglas 2519, 3226, 3277 y 3291 del listado de códigos de error de SUNAT
+  (`db/datos/sunat-codigos-error.xml`), la plantilla UBL 2.1 de Greenter
+  (`github.com/thegreenter/greenter`) y la implementación de khipu homologada en SUNAT beta
+  (`github.com/bacsystem/khipu`, prueba `descuentoGlobalQueAfectaLaBase_codigo02`).
+- ⚠️ **Pendiente:** confirmarlo con una boleta y una factura con descuento en SUNAT beta
+  (`npm run sunat:beta`) antes de usarlo con clientes.
+- Las notas de crédito no llevan descuento global: se emiten con los montos ya rebajados.
+- El margen semanal resta los descuentos. 265 pruebas pasando y `npm run analizar` limpio.
+
+## 15. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 

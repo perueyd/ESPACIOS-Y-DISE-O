@@ -65,6 +65,13 @@ export async function margenSemanal(db: Db, empresaId: string, fecha = ahoraLima
       costo = costo.plus(dec(f.cantidad as string).times(dec(f.costo_unitario as string)).times(signo));
     }
   }
+  // Los descuentos globales (cupones, ofertas) rebajan la venta sin tocar los ítems.
+  const d = await db.query(
+    `SELECT coalesce(sum(descuento_global), 0)::text AS total FROM comprobantes
+     WHERE empresa_id = $1 AND fecha_emision BETWEEN $2 AND $3 AND estado NOT IN ('RECHAZADO', 'ANULADO')`,
+    [empresaId, desde, hasta],
+  );
+  ventas = ventas.minus(dec(d.rows[0].total as string));
   costo = redondear(costo);
   const conCosto = ventas.minus(ventasSinCosto);
   const margen = conCosto.minus(costo);

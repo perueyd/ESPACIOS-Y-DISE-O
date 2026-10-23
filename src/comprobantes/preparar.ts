@@ -4,6 +4,7 @@
  * transacción, solo si aquí no hubo errores.
  */
 import { calcularItems, calcularTotales } from '../calculos/igv.js';
+import { dec } from '../dinero.js';
 import type {
   Afectacion,
   Cliente,
@@ -25,6 +26,8 @@ export interface SolicitudComprobante {
   cliente: Cliente;
   items: ItemEntrada[];
   formaPago: FormaPago;
+  /** Descuento global con IGV (cupón, oferta): se resta del total de los productos gravados. */
+  descuentoGlobal?: string;
   notaCredito?: {
     referencia: DocumentoReferencia;
     motivoCodigo: string;
@@ -54,7 +57,14 @@ export function prepararComprobante(s: SolicitudComprobante, ctx: ContextoEmpres
     // Montos mal escritos: dejamos que las validaciones den el detalle por ítem.
     items = undefined;
   }
-  const totales = items ? calcularTotales(items) : calcularTotales([]);
+  let totales = calcularTotales(items ?? []);
+  if (items && s.descuentoGlobal !== undefined) {
+    try {
+      totales = calcularTotales(items, { conIgv: dec(s.descuentoGlobal), igvTasa: ctx.parametros.igvTasa });
+    } catch {
+      // Descuento inválido: las validaciones explican por qué.
+    }
+  }
 
   const errores = validarComprobante({
     tipo: s.tipo,
@@ -64,6 +74,7 @@ export function prepararComprobante(s: SolicitudComprobante, ctx: ContextoEmpres
     items: s.items,
     totales,
     formaPago: s.formaPago,
+    ...(s.descuentoGlobal !== undefined ? { descuentoGlobal: s.descuentoGlobal } : {}),
     regimen: ctx.empresa.regimen,
     parametros: ctx.parametros,
     comprobantesPermitidos: ctx.comprobantesPermitidos,

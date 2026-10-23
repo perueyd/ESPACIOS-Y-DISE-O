@@ -83,6 +83,7 @@ Cabecera en todos (salvo `salud`): `Authorization: Bearer fk_xxxxxxxxxxxx_…`
 | `items[].cantidad` | no | Entero o texto (por defecto 1) |
 | `items[].unidad` | no | `NIU` (unidad, por defecto) o `ZZ` (servicio) |
 | `items[].afectacion` | no | `GRAVADO` (por defecto), `EXONERADO`, `INAFECTO` |
+| `descuento` | no | Descuento total **con IGV** (cupón u oferta), como texto: `"50.00"`. El total queda en suma de ítems − descuento; en el comprobante va como descuento global que rebaja la base del IGV. `"0.00"` = sin descuento. Solo boletas y facturas, y solo sobre productos gravados |
 | `formaPago` | no | `"CONTADO"` (por defecto) o `{ "cuotas": [{ "monto": "500.00", "vence": "2026-12-31" }] }` (solo facturas) |
 | `notaCredito` | en NC | `{ "tipo": "FACTURA", "serie": "F001", "numero": 15, "motivo": "07", "descripcion": "Devolución" }` |
 | `pago` | no | Pago ya confirmado: `{ "medio": "YAPE", "referencia": "nº de operación" }`. Se registra por el total y el comprobante queda `PAGADO`. Requiere el permiso `cobrar`. |
@@ -101,7 +102,7 @@ Cabecera en todos (salvo `salud`): `Authorization: Bearer fk_xxxxxxxxxxxx_…`
 {
   "id": "7f1c…", "pedido": "ED-1001", "numero": "B001-00000015", "tipo": "03",
   "fecha": "2026-10-23", "estado": "ACEPTADO", "estadoPago": "PAGADO",
-  "total": "469.80", "igv": "71.66", "saldo": "0.00",
+  "total": "469.80", "igv": "71.66", "descuento": "0.00", "saldo": "0.00",
   "pagos": [{ "id": "…", "fecha": "2026-10-23", "monto": "469.80", "medio": "YAPE", "referencia": "123456", "anulado": false }],
   "sunat": { "codigo": "0", "mensaje": "La Boleta numero B001-15, ha sido aceptada", "observaciones": [] },
   "enlaces": { "pdf": "/v1/comprobantes/7f1c…/pdf", "xml": "…/xml", "cdr": "…/cdr" },

@@ -5,6 +5,7 @@
  * Regla de dinero: los montos deben llegar como TEXTO ("59.90"), nunca como número
  * de JavaScript, para no arrastrar errores de punto flotante desde la tienda.
  */
+import { dec } from '../dinero.js';
 import { MEDIOS_PAGO, type MedioPago } from '../cobros/pagos.js';
 import type { SolicitudComprobante } from '../comprobantes/preparar.js';
 import { ahoraLima } from '../fechas.js';
@@ -145,6 +146,9 @@ export function leerPedido(cuerpo: unknown, hoy = ahoraLima()): R<PedidoApi> {
     }
   }
 
+  // Descuento global con IGV (cupón u oferta de la tienda): el total queda en (suma de ítems − descuento).
+  const descuento = cuerpo.descuento === undefined ? undefined : monto(cuerpo.descuento, 'descuento', errores);
+
   let pago: PedidoApi['pago'];
   if (cuerpo.pago !== undefined) {
     const medio = texto(esObjeto(cuerpo.pago) ? cuerpo.pago.medio : undefined)?.toUpperCase() as MedioPago | undefined;
@@ -177,6 +181,8 @@ export function leerPedido(cuerpo: unknown, hoy = ahoraLima()): R<PedidoApi> {
         cliente,
         items,
         formaPago,
+        // "0.00" = sin descuento (la tienda puede mandarlo siempre).
+        ...(descuento !== undefined && dec(descuento).gt(0) ? { descuentoGlobal: descuento } : {}),
         ...(notaCredito ? { notaCredito } : {}),
       },
     },

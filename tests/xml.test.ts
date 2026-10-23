@@ -120,6 +120,46 @@ describe('factura (01)', () => {
   });
 });
 
+describe('descuento global', () => {
+  const c = armar(solicitudBoleta({ items: [item('354.00', '2')], descuentoGlobal: '50.00' }), 7);
+  const xml = generarXmlComprobante(c);
+
+  it('cumple el esquema oficial UBL 2.1 (AllowanceCharge en su lugar)', () => {
+    expect(() => validarContraXsd(xml, 'UBL-Invoice-2.1.xsd')).not.toThrow();
+  });
+
+  it('descuento 02 con base bruta, y totales netos', () => {
+    expect(xpath(xml, '/Invoice/AllowanceCharge/ChargeIndicator')).toBe('false');
+    expect(xpath(xml, '/Invoice/AllowanceCharge/AllowanceChargeReasonCode')).toBe('02');
+    expect(xpath(xml, '/Invoice/AllowanceCharge/Amount')).toBe('42.37');
+    expect(xpath(xml, '/Invoice/AllowanceCharge/BaseAmount')).toBe('600.00');
+    expect(xpath(xml, '/Invoice/AllowanceCharge/MultiplierFactorNumeric')).toBe('0.07062');
+    expect(xpath(xml, '/Invoice/TaxTotal/TaxSubtotal/TaxableAmount')).toBe('557.63');
+    expect(xpath(xml, '/Invoice/TaxTotal/TaxAmount')).toBe('100.37');
+    expect(xpath(xml, '/Invoice/LegalMonetaryTotal/LineExtensionAmount')).toBe('557.63');
+    expect(xpath(xml, '/Invoice/LegalMonetaryTotal/PayableAmount')).toBe('658.00');
+    expect(contar(xml, '/Invoice/LegalMonetaryTotal/AllowanceTotalAmount')).toBe(0); // solo para descuentos que NO afectan la base
+    // Las líneas conservan su valor sin descuento.
+    expect(xpath(xml, '/Invoice/InvoiceLine/LineExtensionAmount')).toBe('600.00');
+  });
+
+  it('solo en facturas y boletas, menor que lo gravado y con hasta 2 decimales', () => {
+    const errores = (extra: Partial<SolicitudComprobante>) => {
+      const r = prepararComprobante(solicitudBoleta({ items: [item('100.00')], ...extra }), contextoPrueba);
+      return r.ok ? [] : r.errores;
+    };
+    expect(errores({ descuentoGlobal: '100.00' })).toEqual([expect.stringMatching(/debe ser menor/)]);
+    expect(errores({ descuentoGlobal: '0' })).toEqual([expect.stringMatching(/mayor que cero/)]);
+    expect(errores({ descuentoGlobal: '1.005' })).toEqual([expect.stringMatching(/2 decimales/)]);
+    expect(errores({ descuentoGlobal: '5.00', items: [item('100.00', '1', { afectacion: Afectacion.EXONERADO })] }))
+      .toEqual(expect.arrayContaining([expect.stringMatching(/gravados/)]));
+    expect(errores({
+      descuentoGlobal: '5.00', tipo: TipoComprobante.NOTA_CREDITO, serie: 'BC01',
+      notaCredito: { referencia: { tipo: TipoComprobante.BOLETA, serie: 'B001', numero: 1 }, motivoCodigo: '07', motivoDescripcion: 'x' },
+    })).toEqual([expect.stringMatching(/nota de crédito/)]);
+  });
+});
+
 describe('boleta (03)', () => {
   it('boleta con DNI cumple el esquema y no lleva forma de pago', () => {
     const xml = generarXmlComprobante(armar(solicitudBoleta(), 1));

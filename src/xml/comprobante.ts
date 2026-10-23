@@ -1,7 +1,7 @@
 /**
  * XML UBL 2.1 de factura (01), boleta (03) y nota de crédito (07).
  */
-import { Decimal, aTextoHasta, dec } from '../dinero.js';
+import { Decimal, aTextoHasta, dec, redondear } from '../dinero.js';
 import {
   LEYENDA_MONTO_EN_LETRAS,
   TIPO_OPERACION_VENTA_INTERNA,
@@ -73,6 +73,23 @@ function formaPago(doc: Nodo, c: Comprobante): void {
   });
 }
 
+/** Descuento global que afecta la base imponible (catálogo 53, código 02). */
+function descuentoGlobal(doc: Nodo, c: Comprobante): void {
+  const d = c.totales.descuentoGlobal;
+  if (!d) return;
+  const a = doc.ele('cac:AllowanceCharge');
+  el(a, 'cbc:ChargeIndicator', 'false');
+  el(a, 'cbc:AllowanceChargeReasonCode', '02', {
+    listAgencyName: 'PE:SUNAT', listName: 'Cargo/descuento', listURI: 'urn:pe:gob:sunat:cpe:see:gem:catalogos:catalogo53',
+  });
+  // El factor es opcional; si va, SUNAT exige base × factor = monto (± 1). Con 5 decimales
+  // no siempre se cumple en montos grandes, así que solo se informa cuando lo reproduce.
+  const factor = redondear(d.monto.div(d.base), 5);
+  if (factor.gt(0) && d.base.times(factor).minus(d.monto).abs().lte(1)) el(a, 'cbc:MultiplierFactorNumeric', factor.toFixed(5));
+  monto(a, 'cbc:Amount', d.monto, c.moneda);
+  monto(a, 'cbc:BaseAmount', d.base, c.moneda);
+}
+
 function totalImpuestos(doc: Nodo, c: Comprobante): void {
   const t = c.totales;
   const tt = doc.ele('cac:TaxTotal');
@@ -141,6 +158,7 @@ function generarInvoice(c: Comprobante, legible: boolean): string {
   emisor(doc, c.empresa);
   receptor(doc, c);
   formaPago(doc, c);
+  descuentoGlobal(doc, c);
   totalImpuestos(doc, c);
   totalesMonetarios(doc, c);
   c.items.forEach((item, i) => linea(doc, c, item, i, 'InvoiceLine', 'InvoicedQuantity'));
