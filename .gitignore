@@ -1,0 +1,28 @@
+# Secretos: NUNCA subir a GitHub
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+*.pem
+*.key
+*.crt
+*.cer
+certificados/
+secrets/
+
+# Comprobantes generados (se guardan en almacenamiento seguro, no en el repo)
+storage/
+xml/
+cdr/
+
+# Node / build
+node_modules/
+dist/
+coverage/
+.vercel/
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db
