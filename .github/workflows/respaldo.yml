@@ -1,0 +1,39 @@
+# Respaldo diario de la base del facturador (comprobantes, XML, constancias…).
+# El archivo sale CIFRADO con RESPALDO_CLAVE: sin esa clave no se puede leer.
+# Se guarda 90 días como "artifact" de GitHub (Actions → respaldo → el día que
+# quieras → Artifacts). Descarga uno al mes y guárdalo fuera de GitHub: la
+# obligación es conservar 5 años.
+#
+# No hace nada hasta configurar en GitHub → Settings → Secrets and variables → Actions:
+#   - Secreto DATABASE_URL     (la de producción)
+#   - Secreto RESPALDO_CLAVE   (una clave larga; guárdala en tu gestor de contraseñas)
+#
+# Restaurar (en tu PC, ver docs/PUBLICAR.md):
+#   openssl enc -d -aes-256-cbc -pbkdf2 -in respaldo.sql.gz.enc -out respaldo.sql.gz
+name: respaldo
+on:
+  schedule:
+    - cron: '17 8 * * *' # 3:17 am en Lima
+  workflow_dispatch:
+
+jobs:
+  respaldar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Copia cifrada de la base
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RESPALDO_CLAVE: ${{ secrets.RESPALDO_CLAVE }}
+        run: |
+          if [ -z "$DATABASE_URL" ] || [ -z "$RESPALDO_CLAVE" ]; then echo "Respaldo sin configurar: no se hace nada."; exit 0; fi
+          set -o pipefail
+          docker run --rm -e DATABASE_URL postgres:17 sh -c 'pg_dump --no-owner --no-privileges "$DATABASE_URL"' \
+            | gzip -9 \
+            | openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:RESPALDO_CLAVE -out respaldo.sql.gz.enc
+          test -s respaldo.sql.gz.enc
+      - uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-${{ github.run_id }}
+          path: respaldo.sql.gz.enc
+          retention-days: 90
+          if-no-files-found: ignore

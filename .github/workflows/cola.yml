@@ -1,0 +1,27 @@
+# Cada 5 minutos le pide al facturador publicado que procese su cola: reenviar
+# lo que SUNAT no recibió, consultar tickets de anulaciones y avisar de cuotas
+# por vencer. (Al emitir, el envío a SUNAT ya se intenta al instante; esto es
+# la red de seguridad.)
+#
+# No hace nada hasta configurar en GitHub → Settings → Secrets and variables → Actions:
+#   - Variable FACTURADOR_URL   (ej. https://facturador-sunat.onrender.com)
+#   - Secreto  CLAVE_CRON       (la misma CLAVE_CRON del servidor)
+# Ojo: GitHub pausa los horarios si el repositorio pasa 60 días sin cambios; basta
+# con volver a activarlo en la pestaña Actions.
+name: cola
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  procesar:
+    if: ${{ vars.FACTURADOR_URL != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Procesar la cola de envíos a SUNAT
+        env:
+          URL: ${{ vars.FACTURADOR_URL }}
+          CLAVE: ${{ secrets.CLAVE_CRON }}
+        run: |
+          curl -fsS --max-time 120 -X POST "$URL/v1/cola/procesar" -H "Authorization: Bearer $CLAVE"

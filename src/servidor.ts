@@ -1,6 +1,7 @@
 /**
  * Servidor HTTP de la API.   npm run servidor
- * Variables: DATABASE_URL, LLAVE_MAESTRA, ALMACEN_DIR, FIRMA_ALGORITMO, CLAVE_CRON, PUERTO.
+ * Variables: DATABASE_URL, LLAVE_MAESTRA, FIRMA_ALGORITMO, CLAVE_CRON, PUERTO (o PORT) y, solo
+ * en desarrollo, ALMACEN_DIR. Ver docs/PUBLICAR.md.
  */
 import { serve } from '@hono/node-server';
 import { crearApp } from './api/app.js';
@@ -12,8 +13,9 @@ const db = crearPool();
 // y, si no alcanza, sigue en la cola.
 const app = crearApp({
   db,
-  servicios: serviciosDesdeEntorno(process.env, { tiempoMaximoSunatMs: 8_000 }),
+  servicios: serviciosDesdeEntorno(db, process.env, { tiempoMaximoSunatMs: 8_000 }),
   ...(process.env.CLAVE_CRON ? { claveCron: process.env.CLAVE_CRON } : {}),
 });
-const puerto = Number(process.env.PUERTO ?? 3000);
+// PORT es el nombre que usan Render y Railway al publicar.
+const puerto = Number(process.env.PUERTO ?? process.env.PORT ?? 3000);
 serve({ fetch: app.fetch, port: puerto }, () => console.log(`Facturador escuchando en http://localhost:${puerto}`));

@@ -1,0 +1,35 @@
+# Repite en cada subida lo que se corre antes de cada commit: todas las pruebas
+# (con PostgreSQL de verdad) y el análisis de TypeScript + código sin usar.
+# Un cambio con pruebas fallando no se une (regla del proyecto).
+name: pruebas
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  pruebas:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: facturador
+          POSTGRES_PASSWORD: facturador
+          POSTGRES_DB: facturador_pruebas
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U facturador" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL_PRUEBAS: postgres://facturador:facturador@localhost:5432/facturador_pruebas
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      # xmllint (esquema UBL), poppler (PDF) y Python con lxml/cryptography (verificador de firmas).
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq libxml2-utils poppler-utils python3-lxml python3-cryptography
+      - run: npm ci
+      - run: npm run analizar
+      - run: npm test
