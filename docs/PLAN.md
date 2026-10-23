@@ -159,7 +159,15 @@ Después de aceptado: ANULACION_EN_PROCESO → ANULADO (baja / resumen)
 Orden sugerido de módulos futuros: (a) cobros y estado de pago, (b) inventario y
 compras, (c) devoluciones, (d) crédito fiscal y SIRE, (e) finanzas e impuestos,
 (f) conciliación bancaria, (g) perfil taxista, (h) dashboard completo,
-(i) venta a otros negocios.
+(i) venta a otros negocios, (j) guías de remisión electrónicas (GRE).
+
+**Accesos de SUNAT que pedirán los módulos futuros** (se configuran cuando lleguemos a cada uno):
+
+- Validar facturas de proveedores y SIRE: credenciales de API (client_id / client_secret) generadas en SOL.
+- Guías de remisión electrónicas: API REST de SUNAT con OAuth2 (distinta del servicio de facturas) y
+  sus propios permisos para el usuario secundario.
+- Usuario SOL secundario actual del facturador: solo "Servicio de Envío de Documentos Electrónicos
+  por Servicio Web" y las 4 opciones de "Consultar Envíos de CPE".
 
 Al final de cada fase: revisión de seguridad + tu aprobación antes de unir a `main`.
 
