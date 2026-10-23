@@ -4,6 +4,8 @@
  * acepta bases cuyo nombre termine en "_pruebas".
  */
 import { crearPool, type Db } from '../../src/db/conexion.js';
+import { configurarEmpresa } from '../../src/empresas/configurar.js';
+import type { Regimen } from '../../src/tipos.js';
 import { migrar } from '../../scripts/migrar.js';
 import { RUC_EMPRESA } from '../ayudantes.js';
 
@@ -28,21 +30,18 @@ export interface Fixture {
   marcaId: string;
 }
 
-/** Empresa MYPE con series F001, B001, FC01, BC01 y dos canales. */
-export async function crearEmpresa(db: Db, ruc = RUC_EMPRESA, regimen = 'MYPE_TRIBUTARIO'): Promise<Fixture> {
-  const e = await db.query(
-    `INSERT INTO empresas (ruc, razon_social, nombre_comercial, ubigeo, departamento, provincia, distrito, direccion)
-     VALUES ($1, 'EMPRESA DE PRUEBA S.A.C.', 'Espacios y Diseño', '150101', 'LIMA', 'LIMA', 'LIMA', 'AV. PRUEBA 123')
-     RETURNING id`,
-    [ruc],
+/** Empresa con series F001, B001, FC01, BC01, marca y canales: la misma configuración de producción. */
+export async function crearEmpresa(db: Db, ruc = RUC_EMPRESA, regimen: Regimen = 'MYPE_TRIBUTARIO'): Promise<Fixture> {
+  const { empresaId } = await configurarEmpresa(db, {
+    ruc, razonSocial: 'EMPRESA DE PRUEBA S.A.C.', nombreComercial: 'Espacios y Diseño',
+    ubigeo: '150101', departamento: 'LIMA', provincia: 'LIMA', distrito: 'LIMA', direccion: 'AV. PRUEBA 123',
+    regimen, regimenDesde: '2020-01-01', marca: 'Espacios y Diseño',
+  });
+  const r = await db.query(
+    `SELECT (SELECT id FROM canales WHERE empresa_id = $1 AND nombre = 'Tienda web') AS tienda,
+            (SELECT id FROM canales WHERE empresa_id = $1 AND nombre = 'WhatsApp') AS manual,
+            (SELECT id FROM marcas WHERE empresa_id = $1) AS marca`,
+    [empresaId],
   );
-  const empresaId = e.rows[0].id as string;
-  await db.query(`INSERT INTO empresa_regimen (empresa_id, regimen, vigente_desde) VALUES ($1, $2, '2020-01-01')`, [empresaId, regimen]);
-  const m = await db.query(`INSERT INTO marcas (empresa_id, nombre) VALUES ($1, 'Espacios y Diseño') RETURNING id`, [empresaId]);
-  const t = await db.query(`INSERT INTO canales (empresa_id, nombre, tipo) VALUES ($1, 'Tienda web', 'API') RETURNING id`, [empresaId]);
-  const w = await db.query(`INSERT INTO canales (empresa_id, nombre, tipo) VALUES ($1, 'WhatsApp', 'MANUAL') RETURNING id`, [empresaId]);
-  for (const [tipo, serie] of [['01', 'F001'], ['03', 'B001'], ['07', 'FC01'], ['07', 'BC01']]) {
-    await db.query(`INSERT INTO series (empresa_id, tipo_comprobante, serie) VALUES ($1, $2, $3)`, [empresaId, tipo, serie]);
-  }
-  return { empresaId, canalTienda: t.rows[0].id, canalManual: w.rows[0].id, marcaId: m.rows[0].id };
+  return { empresaId, canalTienda: r.rows[0].tienda, canalManual: r.rows[0].manual, marcaId: r.rows[0].marca };
 }

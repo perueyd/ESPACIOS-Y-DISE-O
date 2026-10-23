@@ -1,6 +1,6 @@
 # Plan del facturador electrónico — Fase 1 (plan y diseño)
 
-> Estado: fases 1 a 4 aprobadas (prueba real en beta superada); fase 5 lista para revisión (ver sección 10).
+> Estado: fases 1 a 4 aprobadas (prueba real en beta superada); fases 5 y 6 listas para revisión (secciones 10 y 11).
 > Fecha: 23-oct-2026.
 
 ---
@@ -409,7 +409,54 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
 - La marca "SIN VALOR LEGAL" impide que un PDF de pruebas se haga pasar por un comprobante real.
 - El QR solo contiene datos que ya figuran impresos en el comprobante.
 
-## 11. Decisiones que siguen abiertas
+## 11. Fase 6 — API y conexión con la tienda (resultado)
+
+**Qué quedó hecho** (detalle en `docs/API.md`)
+
+- **API HTTP** (Hono): emitir, consultar por id o por número de pedido, descargar PDF (A4 o
+  ticket), XML y CDR, anular, endpoint de salud y endpoint del cron.
+- **Llaves de API por canal**, guardadas solo como huella SHA-256 y comparadas en tiempo
+  constante. Tienen permisos (`emitir`, `consultar`, `anular`), se revocan al instante y dejan
+  de funcionar si se desactiva su canal.
+- **Envío inmediato a SUNAT al emitir**, con un límite de 8 segundos. Si no alcanza, el
+  comprobante queda en la cola y el cron lo reintenta.
+- **Aislamiento por empresa:** cada consulta se limita a la empresa de la llave. Un comprobante
+  de otra empresa responde 404.
+- **Protecciones:** cuerpo de máximo 100 KB, límite de pedidos por minuto por llave, montos
+  solo como texto y errores en español.
+- **Comandos:** `empresa:configurar` (empresa, series, marca y 4 canales), `llave-api`
+  (crear, listar, revocar), `sol:configurar` (usuario SOL secundario cifrado para
+  producción) y `servidor`.
+- **Conexión con la tienda:** dos formas documentadas con código listo, desde la tienda en
+  Vercel o desde la hoja "Pedidos ED" con Apps Script. En ambas se emite **solo cuando
+  confirmas el pago Yape/Plin**. No modifiqué el repositorio de la tienda: está fuera de
+  este proyecto y conectarlo es una decisión tuya.
+- **Guía para desarrolladores:** `docs/DESARROLLO.md`.
+- **235 pruebas** pasando, más `npm run analizar` (TypeScript estricto + knip) sin observaciones.
+
+**Errores encontrados y corregidos en esta fase**
+
+- El control de acceso se registraba dos veces por pedido (la ruta `/v1/comprobantes/*`
+  también cubre `/v1/comprobantes`). Duplicaba las consultas a la base y el conteo del límite
+  por minuto.
+- El análisis con knip encontró la función `guardarCredencialesSol` sin usar: faltaba el
+  comando para cargar el usuario SOL de producción. Se agregó `sol:configurar`, con su prueba.
+- Se quitó código duplicado: la configuración de variables de entorno (ahora solo en
+  `src/config.ts`) y la creación de empresas de prueba (ahora usa `configurarEmpresa`, la misma
+  función de producción).
+
+**Revisión de seguridad de la fase 6**
+
+- Las llaves nunca se guardan completas, y la comparación no revela información por tiempos.
+- Un 401 no explica por qué la llave falló (inexistente, revocada o canal desactivado), para
+  no dar pistas.
+- El endpoint del cron tiene su propia clave (`CLAVE_CRON`). Sin ella configurada, queda cerrado.
+- Los errores internos no exponen detalles al cliente; solo se registran en el servidor.
+- **Pendiente para producción:** *Row Level Security* en PostgreSQL como segunda barrera (hoy
+  el aislamiento lo hace la aplicación y está probado), almacenamiento en la nube y enlaces
+  públicos temporales del PDF para enviar al cliente por WhatsApp.
+
+## 12. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 

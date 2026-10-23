@@ -69,35 +69,51 @@ export async function procesarCola(db: Db, s: ServiciosEnvio, limite = 20): Prom
   // (máximo ~45 s de espera a SUNAT). Si se tomaran varios juntos, los últimos podrían
   // quedar con el bloqueo vencido y otro procesador los enviaría de nuevo (duplicado).
   for (let i = 0; i < limite; i++) {
-    const ahora = s.ahora?.() ?? new Date();
-    const tomado = await db.query<Trabajo>(
-      `UPDATE cola_envios SET estado = 'PROCESANDO', intentos = intentos + 1,
-              bloqueado_hasta = $1::timestamptz + interval '5 minutes', actualizado_en = $1
-       WHERE id = (
-         SELECT id FROM cola_envios
-         WHERE (estado = 'PENDIENTE' AND proximo_intento_en <= $1)
-            OR (estado = 'PROCESANDO' AND bloqueado_hasta < $1)   -- un procesador que se cayó
-         ORDER BY proximo_intento_en LIMIT 1
-         FOR UPDATE SKIP LOCKED)
-       RETURNING id, empresa_id, tipo, referencia_id, intentos, to_char(fecha_limite_legal, 'YYYY-MM-DD') AS fecha_limite_legal`,
-      [ahora],
-    );
-    const t = tomado.rows[0];
-    if (!t) break;
-    let d: Desenlace;
-    try {
-      d = await procesarTrabajo(db, s, t);
-    } catch (e) {
-      // Algo inesperado: no se pierde, queda para reintentar y se registra el error.
-      d = { tipo: 'REINTENTAR', error: `Error interno: ${e instanceof Error ? e.message : String(e)}` };
-    }
-    await cerrarTrabajo(db, t, d, ahora);
+    const d = await tomarYProcesar(db, s);
+    if (!d) break;
     resumen.procesados++;
     if (d.tipo === 'HECHO') resumen.hechos++;
     else if (d.tipo === 'REINTENTAR') resumen.reintentos++;
     else resumen.revisar++;
   }
   return resumen;
+}
+
+/**
+ * Envía YA el trabajo pendiente de un comprobante (lo usa la API al emitir, para no
+ * esperar a la siguiente vuelta del cron). Si otro procesador lo tiene tomado, no hace nada.
+ * Devuelve true si lo procesó.
+ */
+export async function procesarAhora(db: Db, s: ServiciosEnvio, referenciaId: string): Promise<boolean> {
+  return (await tomarYProcesar(db, s, referenciaId)) !== undefined;
+}
+
+async function tomarYProcesar(db: Db, s: ServiciosEnvio, referenciaId?: string): Promise<Desenlace | undefined> {
+  const ahora = s.ahora?.() ?? new Date();
+  const tomado = await db.query<Trabajo>(
+    `UPDATE cola_envios SET estado = 'PROCESANDO', intentos = intentos + 1,
+            bloqueado_hasta = $1::timestamptz + interval '5 minutes', actualizado_en = $1
+     WHERE id = (
+       SELECT id FROM cola_envios
+       WHERE ((estado = 'PENDIENTE' AND proximo_intento_en <= $1)
+          OR (estado = 'PROCESANDO' AND bloqueado_hasta < $1))   -- un procesador que se cayó
+         AND ($2::uuid IS NULL OR referencia_id = $2::uuid)
+       ORDER BY proximo_intento_en LIMIT 1
+       FOR UPDATE SKIP LOCKED)
+     RETURNING id, empresa_id, tipo, referencia_id, intentos, to_char(fecha_limite_legal, 'YYYY-MM-DD') AS fecha_limite_legal`,
+    [ahora, referenciaId ?? null],
+  );
+  const t = tomado.rows[0];
+  if (!t) return undefined;
+  let d: Desenlace;
+  try {
+    d = await procesarTrabajo(db, s, t);
+  } catch (e) {
+    // Algo inesperado: no se pierde, queda para reintentar y se registra el error.
+    d = { tipo: 'REINTENTAR', error: `Error interno: ${e instanceof Error ? e.message : String(e)}` };
+  }
+  await cerrarTrabajo(db, t, d, ahora);
+  return d;
 }
 
 async function procesarTrabajo(db: Db, s: ServiciosEnvio, t: Trabajo): Promise<Desenlace> {

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "scripts/*.ts",
+    "tests/**/*.test.ts"
+  ],
+  "project": [
+    "src/**/*.ts",
+    "scripts/**/*.ts",
+    "tests/**/*.ts"
+  ],
+  "ignoreExportsUsedInFile": true,
+  "ignoreBinaries": [
+    "xmllint",
+    "pdftotext",
+    "pdfinfo",
+    "pdftoppm"
+  ]
+}

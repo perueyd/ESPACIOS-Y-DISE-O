@@ -12,7 +12,7 @@ de baja directamente a SUNAT (SEE - Del Contribuyente), sin proveedores externos
 | 3. Firma digital | ✅ Aprobada |
 | 4. Envío a SUNAT beta | ✅ Aprobada (prueba real en beta superada) |
 | 5. PDF con QR | ✅ Lista para revisión (A4 y ticket 80 mm) |
-| 6. API y conexión con la tienda | Pendiente |
+| 6. API y conexión con la tienda | ✅ Lista para revisión |
 
 Hoy el sistema valida, calcula el IGV, numera sin saltos, guarda en PostgreSQL, genera
 el XML, lo firma y lo envía a SUNAT **beta** con reintentos automáticos. Producción está
@@ -28,7 +28,7 @@ bloqueada hasta tu autorización.
 6. Lo firma con el Certificado Digital Tributario de la empresa (guardado cifrado) y guarda el XML firmado.
 7. Lo envía a SUNAT y guarda la constancia (CDR). Si SUNAT no responde, lo reintenta solo.
 8. Genera el PDF con QR en A4 o ticket de 80 mm (a elección).
-9. *(Próxima fase)* API para conectar la tienda y otros canales.
+9. La tienda y otros canales emiten por la API, cada uno con su llave (ver `docs/API.md`).
 
 ## Cómo usarlo (para desarrollo)
 
@@ -42,6 +42,7 @@ npm install                      # instala las librerías
 npm run db:prueba                # levanta una base de datos de pruebas local y muestra su URL
 export DATABASE_URL_PRUEBAS=...  # pega la URL que mostró el paso anterior
 npm test                         # corre TODAS las pruebas (deben pasar al 100 %)
+npm run analizar                 # TypeScript estricto + código sin usar (knip)
 
 npm run typecheck                # revisa los tipos de TypeScript
 npm run ejemplos                 # genera XML de ejemplo en docs/ejemplos/
@@ -74,6 +75,14 @@ npm run sunat:beta -- --ruc 20XXXXXXXXX
 ```
 Detalles en [`docs/PRUEBA_BETA.md`](docs/PRUEBA_BETA.md).
 
+### Servidor de la API
+
+```bash
+npm run empresa:configurar -- …   # empresa, series, marca y canales (ver docs/API.md)
+npm run llave-api -- crear --ruc 20XXXXXXXXX --canal "Tienda web"
+npm run servidor                  # API en http://localhost:3000
+```
+
 ### Procesar la cola de envíos
 
 ```bash
@@ -94,6 +103,8 @@ npm run cola:procesar     # una vuelta; en producción se programa cada minuto
 | `src/sunat/` | Cliente del servicio web de SUNAT, CDR y códigos de error |
 | `src/cola/` | Cola de envíos con reintentos automáticos |
 | `src/pdf/` | Representación impresa (PDF A4 y ticket) con QR |
+| `src/api/` | API HTTP, llaves por canal y lectura de pedidos |
+| `src/empresas/` | Alta y configuración de empresas |
 | `db/migraciones/` | Estructura de la base de datos (SQL) |
 | `tests/` | Pruebas automáticas |
 | `docs/` | Plan, diseño de la base de datos y ejemplos de XML |
@@ -101,6 +112,8 @@ npm run cola:procesar     # una vuelta; en producción se programa cada minuto
 ## Documentos
 
 - [`CLAUDE.md`](CLAUDE.md) — reglas obligatorias del proyecto.
+- [`docs/DESARROLLO.md`](docs/DESARROLLO.md) — guía para desarrolladores: arquitectura, convenciones y cómo agregar cosas.
+- [`docs/API.md`](docs/API.md) — API para la tienda y otros canales.
 - [`docs/PLAN.md`](docs/PLAN.md) — cómo funciona, arquitectura, fases y lo revisado de SUNAT.
 - [`docs/BASE_DE_DATOS.md`](docs/BASE_DE_DATOS.md) — diseño de la base de datos.
 - [`docs/GUIA_CERTIFICADO.md`](docs/GUIA_CERTIFICADO.md) — cómo obtener el certificado digital en SUNAT.

@@ -93,8 +93,13 @@ emisión manual (WhatsApp, Instagram, en persona) y, a futuro, otros negocios.
 - Llaves de API distintas por canal, guardadas como hash, desactivables.
 - Respaldos diarios automáticos, registro de errores y alertas cuando algo falle.
 - Los cálculos de impuestos y finanzas se muestran siempre como **estimados**.
+- Antes de cada commit: `npm test` y `npm run analizar` (TypeScript + knip) sin errores, y
+  revisar `git status` para que ningún archivo nuevo quede fuera. Mejorar lo existente en vez
+  de agregar capas encima, y eliminar el código que no se use.
 
 ## Documentos de referencia
 
 - `docs/PLAN.md` — plan general, arquitectura, fases y hallazgos de SUNAT.
 - `docs/BASE_DE_DATOS.md` — diseño de la base de datos.
+- `docs/DESARROLLO.md` — arquitectura, convenciones y cómo agregar cosas.
+- `docs/API.md` — API para canales.
