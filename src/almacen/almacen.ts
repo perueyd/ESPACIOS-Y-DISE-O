@@ -1,12 +1,16 @@
 /**
  * Almacenamiento de archivos (XML firmados, CDR, PDF).
  *
- * Regla: los archivos se escriben UNA vez y nunca se sobrescriben. En producción
- * se usará un almacenamiento tipo S3 con versionado y bloqueo de objetos (fase 4);
- * `AlmacenLocal` sirve para desarrollo y pruebas.
+ * Regla: los archivos se escriben UNA vez y nunca se sobrescriben.
+ *   - `AlmacenPostgres` (producción): el contenido va en la misma base de datos
+ *     (tabla `archivos_contenido`, solo inserción). Un XML firmado pesa pocos KB y
+ *     así los respaldos diarios de la base cubren también los archivos.
+ *   - `AlmacenLocal`: una carpeta, para desarrollo y pruebas.
  */
+import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, resolve, sep } from 'node:path';
+import type { Db } from '../db/conexion.js';
 
 export interface Almacen {
   /** Guarda el archivo. Falla si ya existe un archivo distinto en esa ruta. */
@@ -53,5 +57,29 @@ export class AlmacenLocal implements Almacen {
 
   async leer(ruta: string): Promise<Buffer> {
     return readFile(this.absoluta(ruta));
+  }
+}
+
+export class AlmacenPostgres implements Almacen {
+  constructor(private readonly db: Db) {}
+
+  async guardar(ruta: string, contenido: Buffer): Promise<void> {
+    validarRuta(ruta);
+    const sha256 = createHash('sha256').update(contenido).digest('hex');
+    const r = await this.db.query(
+      `INSERT INTO archivos_contenido (ruta, contenido, sha256) VALUES ($1, $2, $3) ON CONFLICT (ruta) DO NOTHING`,
+      [ruta, contenido, sha256],
+    );
+    if (r.rowCount) return;
+    // Ya existía (reintento tras un fallo): solo es válido si es el mismo contenido.
+    const existente = await this.db.query(`SELECT sha256 FROM archivos_contenido WHERE ruta = $1`, [ruta]);
+    if (existente.rows[0]?.sha256 !== sha256) throw new ErrorAlmacen(`Ya existe un archivo distinto en "${ruta}"; no se sobrescribe.`);
+  }
+
+  async leer(ruta: string): Promise<Buffer> {
+    validarRuta(ruta);
+    const r = await this.db.query(`SELECT contenido FROM archivos_contenido WHERE ruta = $1`, [ruta]);
+    if (!r.rows[0]) throw new ErrorAlmacen(`No existe el archivo "${ruta}".`);
+    return r.rows[0].contenido as Buffer;
   }
 }

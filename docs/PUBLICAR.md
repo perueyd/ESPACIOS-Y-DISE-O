@@ -1,0 +1,138 @@
+# Publicar el facturador en internet
+
+Guía para el dueño, paso a paso. Al terminar, la tienda podrá pedir boletas y facturas
+al facturador. **Todo sigue en ambiente BETA de SUNAT** (comprobantes de prueba, sin valor
+legal): publicar el servidor NO es pasar a producción. Eso se hace aparte, con tu
+autorización escrita y la lista de `docs/PLAN.md` (sección 6).
+
+| Pieza | Servicio | Costo aproximado |
+|---|---|---|
+| Base de datos (comprobantes, XML, constancias) | Supabase | Gratis para empezar |
+| Servidor del facturador (la API) | Render | US$ 7 al mes (plan *Starter*) |
+| Cola cada 5 min y respaldo diario | GitHub Actions | Gratis |
+
+> **Por qué Render *Starter* y no el gratis:** el plan gratis se "duerme" tras 15 minutos
+> sin uso y tarda casi un minuto en despertar. La tienda espera como máximo 8 segundos, así
+> que la primera boleta del día fallaría. Con *Starter* siempre está despierto.
+
+Necesitas tu PC con la carpeta del facturador (`C:\Users\HP\facturador-sunat`) actualizada:
+```
+cd facturador-sunat
+git checkout main
+git pull
+npm install
+```
+
+---
+
+## Paso 1 — Claves nuevas (en tu PC)
+
+Genera **dos** claves, una para cada uso. Ejecuta dos veces:
+```
+npm run llave:generar
+```
+- La primera es la **LLAVE_MAESTRA** (cifra el certificado y la Clave SOL).
+- La segunda es la **CLAVE_CRON** (para la cola automática).
+
+Guárdalas en tu gestor de contraseñas. **Si pierdes la LLAVE_MAESTRA hay que volver a cargar
+el certificado.** No las pegues en el chat ni en GitHub.
+
+## Paso 2 — Base de datos en Supabase
+
+1. Entra a https://supabase.com → **New project**.
+2. Nombre: `facturador`. Región: **East US (North Virginia)**. Crea una contraseña fuerte y
+   guárdala en tu gestor.
+3. Cuando termine: botón **Connect** (arriba) → pestaña **Connection string** → elige
+   **Session pooler**. Copia la dirección; empieza con `postgresql://postgres.`…
+   Cambia `[YOUR-PASSWORD]` por la contraseña del punto 2. Esa es tu **DATABASE_URL**.
+4. **Project Settings → Database → SSL Configuration → Download certificate.** Abre el
+   archivo con el Bloc de notas: todo ese texto es tu **DATABASE_CA_CERT**.
+
+> Supabase gratis pausa el proyecto tras 7 días sin uso. La cola automática del paso 5 lo
+> usa cada 5 minutos, así que no se pausará mientras el servidor esté publicado.
+
+## Paso 3 — Servidor en Render
+
+1. Entra a https://render.com con tu cuenta de GitHub.
+2. **New → Blueprint** → elige el repositorio **facturador-sunat** → **Connect**.
+3. Render lee el archivo `render.yaml` y te pide 4 valores:
+   - `DATABASE_URL` → la del paso 2.3
+   - `DATABASE_CA_CERT` → el texto del paso 2.4
+   - `LLAVE_MAESTRA` → la del paso 1
+   - `CLAVE_CRON` → la del paso 1
+4. **Apply**. La primera vez tarda unos minutos: instala, crea las tablas y arranca.
+5. Copia la dirección que te da Render (ej. `https://facturador-sunat.onrender.com`).
+   Ábrela agregando `/v1/salud` al final: debe decir `{"ok":true}`.
+
+## Paso 4 — Tu empresa, el certificado y la llave de la tienda (en tu PC)
+
+En la carpeta del facturador, crea el archivo `.env` (cópialo de `.env.example`) y completa
+**solo** estas líneas con los mismos valores del paso 3:
+```
+DATABASE_URL=...
+DATABASE_CA_CERT="-----BEGIN CERTIFICATE-----
+...
+-----END CERTIFICATE-----"
+LLAVE_MAESTRA=...
+```
+Luego, una sola vez:
+```
+npm run empresa:configurar -- --ruc 20616613074 --razon "CORPORACION AGAMENON S.A.C." --ubigeo 150101 --departamento LIMA --provincia LIMA --distrito LIMA --direccion "TU DIRECCIÓN FISCAL" --regimen MYPE_TRIBUTARIO --desde 2026-01-01 --marca "Espacios y Diseño"
+npm run certificado:cargar -- --ruc 20616613074 --pfx "C:\ruta\a\tu\certificado.p12"
+npm run llave-api -- crear --ruc 20616613074 --canal "Tienda web" --permisos emitir,consultar,cobrar
+```
+⚠️ Revisa el ubigeo y la dirección: deben ser los de tu **domicilio fiscal** en la Ficha RUC.
+La última orden muestra una llave que empieza con `fk_` **una sola vez**: cópiala para el paso 6.
+
+## Paso 5 — Cola automática y respaldo diario (GitHub)
+
+En GitHub → repositorio **facturador-sunat** → **Settings → Secrets and variables → Actions**:
+
+| Pestaña | Nombre | Valor |
+|---|---|---|
+| Variables | `FACTURADOR_URL` | la dirección de Render (sin `/` al final) |
+| Secrets | `CLAVE_CRON` | la del paso 1 |
+| Secrets | `DATABASE_URL` | la del paso 2.3 |
+| Secrets | `RESPALDO_CLAVE` | otra clave de `npm run llave:generar`, guárdala en tu gestor |
+
+> **Recomendado: repositorio privado.** Hoy el repositorio es público. No contiene claves,
+> pero en un repositorio público cualquiera puede descargar los respaldos (van cifrados con
+> `RESPALDO_CLAVE`, así que sin esa clave no sirven). Para cerrarlo: **Settings → General →
+> Danger Zone → Change visibility → Make private.** La tienda y Render siguen funcionando igual.
+
+Luego, en la pestaña **Actions**, abre **cola** y **respaldo** y pulsa **Run workflow** una
+vez para comprobar que salen en verde ✅.
+
+## Paso 6 — Conectar la tienda (Vercel)
+
+Vercel → proyecto de la tienda → **Settings → Environment Variables**:
+- `FACTURADOR_URL` → la dirección de Render
+- `FACTURADOR_LLAVE` → la llave `fk_…` del paso 4
+
+Después: **Deployments → … → Redeploy**. (La tienda ya debe tener unido el cambio
+"Boletas y facturas automáticas".)
+
+## Paso 7 — Prueba completa
+
+1. Haz un pedido en tu tienda con Yape por un monto pequeño.
+2. En el panel, márcalo como **Pagado** y escribe el número de operación.
+3. Debe aparecer **"Boleta B001-…"**. Pulsa **PDF A4**: dirá *"PRUEBA - SIN VALOR LEGAL"*
+   porque estamos en BETA.
+
+Si algo falla, mándame una captura del mensaje.
+
+---
+
+## Restaurar un respaldo (solo si alguna vez se pierde la base)
+
+1. GitHub → **Actions → respaldo** → el día que quieras → **Artifacts** → descarga.
+2. En tu PC (Git Bash):
+   ```
+   openssl enc -d -aes-256-cbc -pbkdf2 -in respaldo.sql.gz.enc -out respaldo.sql.gz
+   gunzip respaldo.sql.gz
+   ```
+3. Cárgalo en una base **nueva y vacía** (nunca encima de la que está funcionando) con
+   `psql "<DATABASE_URL de la base nueva>" -f respaldo.sql`.
+
+La lista de producción exige haber restaurado un respaldo de prueba al menos una vez:
+hazlo con una base de prueba cuando tengas unos días de datos.

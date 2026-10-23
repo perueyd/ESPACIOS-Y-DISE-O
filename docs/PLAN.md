@@ -357,7 +357,7 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
 
 - Consultar el estado de un comprobante en SUNAT (`billConsultService`, requiere el usuario
   SOL real). Sirve para resolver los casos "ya registrado" (1033) sin intervención manual.
-- Almacenamiento en la nube con bloqueo de objetos (hoy hay una carpeta local para desarrollo).
+- ~~Almacenamiento en la nube~~ ✅ resuelto: los archivos van en la base (ver sección 15).
 - Confirmar los plazos en la norma (hoy configurables: factura 3 días, resumen 7, baja 7).
 - El certificado debe estar registrado en SOL: si no, SUNAT responde 2325 *"El certificado
   usado no es el comunicado a SUNAT"*.
@@ -453,8 +453,8 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
 - El endpoint del cron tiene su propia clave (`CLAVE_CRON`). Sin ella configurada, queda cerrado.
 - Los errores internos no exponen detalles al cliente; solo se registran en el servidor.
 - **Pendiente para producción:** *Row Level Security* en PostgreSQL como segunda barrera (hoy
-  el aislamiento lo hace la aplicación y está probado), almacenamiento en la nube y enlaces
-  públicos temporales del PDF para enviar al cliente por WhatsApp.
+  el aislamiento lo hace la aplicación y está probado) y enlaces públicos temporales del PDF
+  para enviar al cliente por WhatsApp. (El almacenamiento quedó resuelto en la sección 15.)
 
 ## 12. Fase 7 — Cobros y estado de pago (resultado)
 
@@ -522,7 +522,20 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
 - Las notas de crédito no llevan descuento global: se emiten con los montos ya rebajados.
 - El margen semanal resta los descuentos. 265 pruebas pasando y `npm run analizar` limpio.
 
-## 15. Decisiones que siguen abiertas
+## 15. Listo para publicar (resultado)
+
+- **Archivos en la base de datos** (`AlmacenPostgres`, migración 011): XML firmados, constancias
+  y logos se guardan en la tabla `archivos_contenido`, solo inserción (ni el SQL directo puede
+  editarlos o borrarlos). Son pocos KB por comprobante y así el respaldo de la base los incluye.
+  `ALMACEN_DIR` (carpeta) queda solo para desarrollo.
+- **Conexión cifrada y verificada** a la base con `DATABASE_CA_CERT` (certificado de Supabase).
+- **Render** (`render.yaml`): arranca aplicando las migraciones pendientes y revisa `/v1/salud`.
+- **GitHub Actions:** `pruebas` (todas las pruebas con PostgreSQL real en cada subida), `cola`
+  (cada 5 min) y `respaldo` (diario, cifrado, 90 días; descargar uno al mes para los 5 años).
+- Los comandos de consola leen `.env` solos.
+- Guía para el dueño: `docs/PUBLICAR.md`. Publicar sigue siendo BETA; producción, aparte.
+
+## 16. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 

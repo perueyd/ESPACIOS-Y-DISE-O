@@ -10,7 +10,10 @@ export type Tx = pg.PoolClient;
 export function crearPool(url = process.env.DATABASE_URL): Db {
   if (!url) throw new Error('Falta la variable de entorno DATABASE_URL.');
   // NUMERIC llega como texto (pg no lo convierte a number): así no se pierden decimales.
-  const pool = new pg.Pool({ connectionString: url, max: 10 });
+  // Con DATABASE_CA_CERT (el certificado que entrega Supabase) la conexión va cifrada y
+  // verificando al servidor: nadie en el camino puede hacerse pasar por la base.
+  const ca = process.env.DATABASE_CA_CERT;
+  const pool = new pg.Pool({ connectionString: url, max: 10, ...(ca ? { ssl: { ca, rejectUnauthorized: true } } : {}) });
   // Sin este manejador, una conexión inactiva que se corta tumbaría todo el proceso.
   pool.on('error', (e) => console.error('Conexión a PostgreSQL perdida:', e.message));
   return pool;

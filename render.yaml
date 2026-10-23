@@ -1,0 +1,26 @@
+# Publicación en Render (https://render.com): New → Blueprint → elige este repositorio.
+# Los valores secretos (sync: false) se escriben en el panel de Render, nunca aquí.
+# Guía paso a paso: docs/PUBLICAR.md
+services:
+  - type: web
+    name: facturador-sunat
+    runtime: node
+    region: virginia
+    plan: starter
+    buildCommand: npm ci
+    # Las migraciones se aplican solas al arrancar (cada una una sola vez).
+    startCommand: npm run db:migrar && npm run servidor
+    healthCheckPath: /v1/salud
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: FIRMA_ALGORITMO
+        value: SHA256
+      - key: DATABASE_URL
+        sync: false
+      - key: DATABASE_CA_CERT
+        sync: false
+      - key: LLAVE_MAESTRA
+        sync: false
+      - key: CLAVE_CRON
+        sync: false

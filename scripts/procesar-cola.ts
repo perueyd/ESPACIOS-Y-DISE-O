@@ -8,7 +8,7 @@ import { crearPool } from '../src/db/conexion.js';
 
 const db = crearPool();
 try {
-  const r = await procesarCola(db, serviciosDesdeEntorno());
+  const r = await procesarCola(db, serviciosDesdeEntorno(db));
   console.log(`Procesados: ${r.procesados} · listos: ${r.hechos} · por reintentar: ${r.reintentos} · por revisar: ${r.revisar}`);
 } catch (e) {
   console.error('✘', e instanceof Error ? e.message : e);

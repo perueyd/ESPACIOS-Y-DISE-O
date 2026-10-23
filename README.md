@@ -54,7 +54,7 @@ Para crear las tablas en una base real (Supabase/Neon):
 
 ```bash
 cp .env.example .env             # y completa DATABASE_URL (nunca subas .env a GitHub)
-DATABASE_URL=... npm run db:migrar
+npm run db:migrar                # los comandos leen .env solos
 ```
 
 ### Cargar el certificado digital de una empresa
@@ -101,6 +101,11 @@ Detalles y formato del JSON en el encabezado de `scripts/inventario.ts` y `scrip
 ```bash
 npm run cola:procesar     # una vuelta; en producción se programa cada minuto
 ```
+
+## Publicarlo en internet
+
+Guía paso a paso (Supabase + Render + GitHub Actions): [`docs/PUBLICAR.md`](docs/PUBLICAR.md).
+Publicar NO es pasar a producción en SUNAT: sigue en BETA hasta tu autorización.
 
 ## Carpetas
 

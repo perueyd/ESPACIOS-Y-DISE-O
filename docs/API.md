@@ -176,8 +176,6 @@ dos veces el mismo pago.
 
 ## 5. Despliegue
 
-- **Servidor:** `npm run servidor`, con las variables de `.env.example` más `CLAVE_CRON` y `PUERTO`.
-- **Cron:** cada minuto, `POST /v1/cola/procesar` con `Authorization: Bearer <CLAVE_CRON>`.
-  Envía los pendientes, consulta tickets, reintenta y revisa las cuotas por vencer y vencidas.
-- **Pendiente antes de producción** (ver `docs/PLAN.md`): almacenamiento en la nube para
-  XML, CDR y logos (hoy es una carpeta local), y la base de datos de producción.
+Paso a paso en [`PUBLICAR.md`](PUBLICAR.md): base en Supabase (los XML y las constancias de
+SUNAT se guardan en la misma base), servidor en Render (`render.yaml`), cola cada 5 minutos y
+respaldo diario cifrado con GitHub Actions (`.github/workflows/`).
