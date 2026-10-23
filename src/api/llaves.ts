@@ -9,7 +9,7 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import type { Db, Tx } from '../db/conexion.js';
 
-export const PERMISOS = ['emitir', 'consultar', 'anular'] as const;
+export const PERMISOS = ['emitir', 'consultar', 'cobrar', 'anular'] as const;
 export type Permiso = (typeof PERMISOS)[number];
 
 export interface ContextoLlave {
@@ -30,7 +30,7 @@ export async function crearLlaveApi(
   q: Db | Tx,
   d: { empresaId: string; canalId: string; permisos?: Permiso[]; usuarioId?: string },
 ): Promise<{ id: string; llave: string; prefijo: string }> {
-  const permisos = d.permisos ?? ['emitir', 'consultar'];
+  const permisos = d.permisos ?? ['emitir', 'consultar', 'cobrar'];
   if (permisos.length === 0 || permisos.some((p) => !PERMISOS.includes(p))) {
     throw new ErrorLlave(`Permisos válidos: ${PERMISOS.join(', ')}.`);
   }

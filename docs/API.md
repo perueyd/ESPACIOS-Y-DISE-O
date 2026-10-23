@@ -32,8 +32,8 @@ npm run certificado:cargar -- --ruc 20XXXXXXXXX --pfx "C:/ruta/segura/certificad
 npm run llave-api -- crear --ruc 20XXXXXXXXX --canal "Tienda web"
 ```
 
-Permisos de una llave: `emitir`, `consultar` (por defecto ambos) y `anular` (agrégalo solo
-si ese canal debe poder anular).
+Permisos de una llave: `emitir`, `consultar` y `cobrar` (los tres por defecto) y `anular`
+(agrégalo solo si ese canal debe poder anular).
 
 Otros comandos: `npm run llave-api -- listar --ruc …` y `npm run llave-api -- revocar --ruc … --prefijo …`.
 
@@ -50,7 +50,9 @@ Cabecera en todos (salvo `salud`): `Authorization: Bearer fk_xxxxxxxxxxxx_…`
 | GET | `/v1/comprobantes/{id}/pdf?formato=A4\|TICKET_80` | PDF (sin `formato`: el del canal) | consultar |
 | GET | `/v1/comprobantes/{id}/xml` | XML firmado | consultar |
 | GET | `/v1/comprobantes/{id}/cdr` | Constancia de SUNAT (ZIP) | consultar |
+| POST | `/v1/comprobantes/{id}/pagos` | Registrar un pago (`{"monto": "100.00", "medio": "YAPE", "referencia": "123456"}`; sin `monto`, cobra el saldo) | cobrar |
 | POST | `/v1/comprobantes/{id}/anular` | Anular (`{"motivo": "…"}`) | anular |
+| GET | `/v1/reportes/resumen-dia?fecha=AAAA-MM-DD` | Ventas, cobros por medio, por cobrar y pendientes con SUNAT | consultar |
 | POST | `/v1/cola/procesar` | Cron: procesa la cola (clave `CLAVE_CRON`) | — |
 
 ### Emitir: `POST /v1/comprobantes`
@@ -82,6 +84,7 @@ Cabecera en todos (salvo `salud`): `Authorization: Bearer fk_xxxxxxxxxxxx_…`
 | `items[].afectacion` | no | `GRAVADO` (por defecto), `EXONERADO`, `INAFECTO` |
 | `formaPago` | no | `"CONTADO"` (por defecto) o `{ "cuotas": [{ "monto": "500.00", "vence": "2026-12-31" }] }` (solo facturas) |
 | `notaCredito` | en NC | `{ "tipo": "FACTURA", "serie": "F001", "numero": 15, "motivo": "07", "descripcion": "Devolución" }` |
+| `pago` | no | Pago ya confirmado: `{ "medio": "YAPE", "referencia": "nº de operación" }`. Se registra por el total y el comprobante queda `PAGADO`. Requiere el permiso `cobrar`. |
 
 **Respuestas**
 
@@ -96,8 +99,9 @@ Cabecera en todos (salvo `salud`): `Authorization: Bearer fk_xxxxxxxxxxxx_…`
 ```json
 {
   "id": "7f1c…", "pedido": "ED-1001", "numero": "B001-00000015", "tipo": "03",
-  "fecha": "2026-10-23", "estado": "ACEPTADO", "estadoPago": "PENDIENTE",
-  "total": "469.80", "igv": "71.66",
+  "fecha": "2026-10-23", "estado": "ACEPTADO", "estadoPago": "PAGADO",
+  "total": "469.80", "igv": "71.66", "saldo": "0.00",
+  "pagos": [{ "id": "…", "fecha": "2026-10-23", "monto": "469.80", "medio": "YAPE", "referencia": "123456", "anulado": false }],
   "sunat": { "codigo": "0", "mensaje": "La Boleta numero B001-15, ha sido aceptada", "observaciones": [] },
   "enlaces": { "pdf": "/v1/comprobantes/7f1c…/pdf", "xml": "…/xml", "cdr": "…/cdr" },
   "repetido": false
@@ -129,6 +133,7 @@ export async function emitirComprobante(pedido) {
         codigo: p.sku, descripcion: p.nombre, cantidad: p.cantidad,
         precio: String(p.precio),                 // ⚠️ mejor si la tienda ya guarda el precio como texto "350.00"
       })),
+      pago: { medio: pedido.medioPago, referencia: pedido.numeroOperacion },  // "YAPE" o "PLIN"
     }),
   });
   const datos = await r.json();
@@ -164,12 +169,13 @@ function alEditar(e) {
 ```
 
 Si el pedido se reenvía por error, el facturador devuelve el mismo comprobante: no hay riesgo
-de emitir dos veces.
+de emitir dos veces. Y si envías el `pago` con su número de operación, tampoco se registra
+dos veces el mismo pago.
 
 ## 5. Despliegue
 
 - **Servidor:** `npm run servidor`, con las variables de `.env.example` más `CLAVE_CRON` y `PUERTO`.
 - **Cron:** cada minuto, `POST /v1/cola/procesar` con `Authorization: Bearer <CLAVE_CRON>`.
-  Envía los pendientes, consulta tickets y reintenta.
+  Envía los pendientes, consulta tickets, reintenta y revisa las cuotas por vencer y vencidas.
 - **Pendiente antes de producción** (ver `docs/PLAN.md`): almacenamiento en la nube para
   XML, CDR y logos (hoy es una carpeta local), y la base de datos de producción.

@@ -245,8 +245,9 @@ describe.skipIf(!URL_PRUEBAS)('API HTTP', () => {
       expect((await sinClave.request('/v1/cola/procesar', { method: 'POST', headers: { Authorization: 'Bearer ' } })).status).toBe(401);
     });
 
-    it('ruta inexistente: 404 en JSON', async () => {
-      const r = await app.request('/v1/nada');
+    it('ruta inexistente: 401 sin llave (no revela qué rutas existen) y 404 con llave', async () => {
+      expect((await app.request('/v1/nada')).status).toBe(401);
+      const r = await pedir('/v1/nada');
       expect(r.status).toBe(404);
       expect(await r.json()).toMatchObject({ error: { codigo: 'NO_ENCONTRADO' } });
     });

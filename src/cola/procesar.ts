@@ -16,6 +16,7 @@
  */
 import { createHash } from 'node:crypto';
 import { crearAlerta } from '../alertas.js';
+import { recalcularCobro } from '../cobros/pagos.js';
 import { firmarComprobante, type ServiciosFirma } from '../comprobantes/firmar-comprobante.js';
 import { cargarComprobante, cargarEmpresa } from '../comprobantes/repositorio.js';
 import { enTransaccion, type Db, type Tx } from '../db/conexion.js';
@@ -294,13 +295,15 @@ async function cambiarEstado(
         enviado_en = coalesce(c.enviado_en, now()),
         respondido_en = CASE WHEN $3::text IS NULL THEN c.respondido_en ELSE now() END
      FROM (SELECT estado FROM comprobantes WHERE id = $1 FOR UPDATE) anterior
-     WHERE c.id = $1 RETURNING anterior.estado AS anterior`,
+     WHERE c.id = $1 RETURNING anterior.estado AS anterior, c.comprobante_referencia_id AS referencia`,
     [comprobanteId, nuevo, sunat?.codigo ?? null, sunat?.mensaje ?? null, sunat?.observaciones?.length ? JSON.stringify(sunat.observaciones) : null],
   );
   await tx.query(
     `INSERT INTO comprobante_eventos (comprobante_id, estado_anterior, estado_nuevo, detalle) VALUES ($1, $2, $3, $4)`,
     [comprobanteId, r.rows[0]?.anterior ?? null, nuevo, detalle],
   );
+  // Si es una nota de crédito, su estado cambia el saldo del comprobante que modifica.
+  if (r.rows[0]?.referencia) await recalcularCobro(tx, r.rows[0].referencia as string);
 }
 
 // ---------------------------------------------------------------------------

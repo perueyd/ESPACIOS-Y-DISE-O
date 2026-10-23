@@ -1,6 +1,6 @@
 # Plan del facturador electrónico — Fase 1 (plan y diseño)
 
-> Estado: fases 1 a 4 aprobadas (prueba real en beta superada); fases 5 y 6 listas para revisión (secciones 10 y 11).
+> Estado: fases 1 a 4 aprobadas (prueba real en beta superada); fases 5, 6 y 7 listas para revisión (secciones 10 a 12).
 > Fecha: 23-oct-2026.
 
 ---
@@ -456,7 +456,29 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
   el aislamiento lo hace la aplicación y está probado), almacenamiento en la nube y enlaces
   públicos temporales del PDF para enviar al cliente por WhatsApp.
 
-## 12. Decisiones que siguen abiertas
+## 12. Fase 7 — Cobros y estado de pago (resultado)
+
+- **Pagos** por comprobante con medio (Yape, Plin, efectivo, transferencia, tarjeta, pasarela),
+  fecha y **número de operación**. La misma operación no se registra dos veces, ni siquiera si
+  llega dos veces a la vez.
+- **Saldo** = total − pagos vigentes − notas de crédito vigentes. **Estado de pago** PENDIENTE,
+  PARCIAL o PAGADO, calculado siempre; nunca se edita a mano. No se puede pagar más que el saldo,
+  aunque lleguen varios pagos al mismo tiempo (probado con 5 pagos simultáneos).
+- **Cuotas:** los pagos cubren las cuotas en orden de vencimiento. Alertas **AMARILLAS** cuando una
+  cuota vence en 3 días o menos y **ROJAS** cuando ya venció, revisadas en cada vuelta del cron.
+- **Anular un pago** mal registrado: queda en el historial con su motivo y el saldo se recalcula.
+- **Resumen del día:** ventas por tipo, notas de crédito, cobros por medio de pago, saldo por
+  cobrar, cuotas vencidas, pendientes con SUNAT y alertas abiertas.
+- **API:** `POST /v1/comprobantes/{id}/pagos`, `GET /v1/reportes/resumen-dia`, saldo y pagos en
+  cada comprobante. La tienda puede **emitir y registrar el Yape en una sola llamada**.
+- **Pendiente:** consulta automática del estado en SUNAT (`billConsultService`). Requiere el usuario
+  SOL real y no se puede probar en beta. Hoy los rechazos ya se detectan y avisan al enviar.
+- 246 pruebas pasando y `npm run analizar` limpio.
+
+**Error de diseño corregido:** el control de acceso ahora se registra una sola vez para todo
+`/v1/*`. Una ruta inexistente sin llave responde 401, así no se revela qué rutas existen.
+
+## 13. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 

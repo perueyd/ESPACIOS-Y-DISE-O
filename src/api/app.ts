@@ -10,12 +10,14 @@ import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import type { Almacen } from '../almacen/almacen.js';
 import { procesarAhora, procesarCola, type ServiciosEnvio } from '../cola/procesar.js';
+import { MEDIOS_PAGO, estadoCobro, pagosDe, registrarPago, revisarVencimientos, type MedioPago } from '../cobros/pagos.js';
 import { solicitarAnulacion } from '../comprobantes/anular.js';
 import { emitirComprobante } from '../comprobantes/emitir.js';
 import { esFormatoPdf, pdfDeComprobante } from '../comprobantes/pdf-comprobante.js';
 import { cargarComprobante } from '../comprobantes/repositorio.js';
 import type { Db } from '../db/conexion.js';
 import { ErrorPdf } from '../pdf/representacion.js';
+import { resumenDelDia } from '../reportes/resumen-dia.js';
 import { idComprobanteLegible } from '../tipos.js';
 import { autenticarLlave, type ContextoLlave, type Permiso } from './llaves.js';
 import { leerPedido } from './solicitud.js';
@@ -83,13 +85,17 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
   app.post('/v1/cola/procesar', async (c) => {
     const recibida = c.req.header('authorization')?.replace(/^Bearer /, '') ?? '';
     if (!dep.claveCron || !igualesEnTiempoConstante(recibida, dep.claveCron)) return error(c, 401, 'NO_AUTORIZADO', 'Clave de cron inválida.');
-    return c.json(await procesarCola(dep.db, dep.servicios));
+    const cola = await procesarCola(dep.db, dep.servicios);
+    const cuotasRevisadas = await revisarVencimientos(dep.db);
+    return c.json({ ...cola, cuotasRevisadas });
   });
 
-  // Todo lo demás requiere una llave de canal. "/v1/comprobantes/*" también cubre
-  // "/v1/comprobantes": registrarlo dos veces autenticaría y contaría doble cada pedido.
+  // Todo lo demás requiere una llave de canal. Se registra UNA vez para "/v1/*": registrarlo
+  // también en rutas más específicas autenticaría y contaría doble cada pedido.
+  const PUBLICAS = new Set(['/v1/salud', '/v1/cola/procesar']);
   const limiteCuerpo = bodyLimit({ maxSize: 100 * 1024, onError: (c) => error(c, 413, 'DEMASIADO_GRANDE', 'El pedido supera los 100 KB.') });
   const autenticar = async (c: Context<{ Variables: Variables }>, next: () => Promise<void>) => {
+    if (PUBLICAS.has(c.req.path)) return next();
     const llave = c.req.header('authorization')?.match(/^Bearer (\S+)$/)?.[1];
     const ctx = llave ? await autenticarLlave(dep.db, llave) : undefined;
     if (!ctx) return error(c, 401, 'NO_AUTORIZADO', 'Llave de API inválida o revocada.');
@@ -98,7 +104,7 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
     await next();
     return undefined;
   };
-  app.use('/v1/comprobantes/*', limiteCuerpo, autenticar);
+  app.use('/v1/*', limiteCuerpo, autenticar);
 
   const requiere = (c: Context<{ Variables: Variables }>, p: Permiso) =>
     c.get('llave').permisos.includes(p) ? undefined : error(c, 403, 'SIN_PERMISO', `Esta llave no tiene el permiso "${p}".`);
@@ -119,6 +125,7 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
     );
     const e = extra.rows[0];
     const c = g.comprobante;
+    const cobro = await estadoCobro(dep.db, id);
     return {
       id,
       pedido: e.pedido_externo_id,
@@ -128,6 +135,8 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
       estado: g.estado,
       estadoPago: e.estado_pago,
       total: c.totales.importeTotal.toFixed(2),
+      saldo: cobro.saldo.toFixed(2),
+      pagos: await pagosDe(dep.db, id),
       igv: c.totales.igv.toFixed(2),
       sunat: e.sunat_codigo_respuesta ? { codigo: e.sunat_codigo_respuesta, mensaje: e.sunat_mensaje, observaciones: e.sunat_observaciones ?? [] } : null,
       enlaces: { pdf: `/v1/comprobantes/${id}/pdf`, xml: `/v1/comprobantes/${id}/xml`, cdr: `/v1/comprobantes/${id}/cdr` },
@@ -141,6 +150,10 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
     const cuerpo = await c.req.json().catch(() => undefined);
     const leido = leerPedido(cuerpo);
     if (!leido.ok) return error(c, 422, 'DATOS_INVALIDOS', 'Revisa los datos del comprobante.', leido.errores);
+    if (leido.valor.pago) {
+      const sinCobrar = requiere(c, 'cobrar');
+      if (sinCobrar) return sinCobrar;
+    }
 
     let marcaId: string | undefined;
     if (leido.valor.marca) {
@@ -168,7 +181,50 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
         console.error('[api] envío inmediato falló, queda en cola:', e instanceof Error ? e.message : e),
       );
     }
-    return c.json({ ...(await respuestaComprobante(r.guardado.id)), repetido: r.resultado === 'REPETIDO' }, r.resultado === 'EMITIDO' ? 201 : 200);
+    // Pago ya confirmado (ej. Yape): se registra por el saldo. Repetir el pedido no lo duplica
+    // (la referencia de la operación es única) ni falla si ya estaba pagado.
+    let errorPago: string | undefined;
+    if (leido.valor.pago && r.guardado.comprobante.tipo !== '07' && !(await estadoCobro(dep.db, r.guardado.id)).saldo.isZero()) {
+      const pago = await registrarPago(dep.db, { empresaId: llave.empresaId, comprobanteId: r.guardado.id, apiLlaveId: llave.apiLlaveId, ...leido.valor.pago });
+      if (pago.resultado === 'ERROR') errorPago = pago.errores.join(' ');
+    }
+    return c.json(
+      { ...(await respuestaComprobante(r.guardado.id)), repetido: r.resultado === 'REPETIDO', ...(errorPago ? { errorPago } : {}) },
+      r.resultado === 'EMITIDO' ? 201 : 200,
+    );
+  });
+
+  app.post('/v1/comprobantes/:id/pagos', async (c) => {
+    const sinPermiso = requiere(c, 'cobrar');
+    if (sinPermiso) return sinPermiso;
+    const id = await comprobanteDeLaLlave(c);
+    if (!id) return error(c, 404, 'NO_ENCONTRADO', 'Comprobante no encontrado.');
+    const cuerpo = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
+    if (typeof cuerpo.monto === 'number') return error(c, 422, 'DATOS_INVALIDOS', 'Envía el monto como texto, por ejemplo "350.00".');
+    const texto = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined);
+    const medio = texto(cuerpo.medio)?.toUpperCase() as MedioPago | undefined;
+    if (!medio || !MEDIOS_PAGO.includes(medio)) return error(c, 422, 'DATOS_INVALIDOS', `medio: usa ${MEDIOS_PAGO.join(', ')}.`);
+    const llave = c.get('llave');
+    const monto = texto(cuerpo.monto);
+    const referencia = texto(cuerpo.referencia);
+    const fecha = texto(cuerpo.fecha);
+    const r = await registrarPago(dep.db, {
+      empresaId: llave.empresaId, comprobanteId: id, medio, apiLlaveId: llave.apiLlaveId,
+      ...(monto ? { monto } : {}), ...(referencia ? { referencia } : {}), ...(fecha ? { fecha } : {}),
+    });
+    if (r.resultado === 'ERROR') return error(c, 422, 'PAGO_INVALIDO', r.errores[0] ?? 'Pago inválido.', r.errores);
+    return c.json(
+      { pagoId: r.pagoId, repetido: r.resultado === 'REPETIDO', estadoPago: r.cobro.estadoPago, saldo: r.cobro.saldo.toFixed(2), pagado: r.cobro.pagado.toFixed(2) },
+      r.resultado === 'REGISTRADO' ? 201 : 200,
+    );
+  });
+
+  app.get('/v1/reportes/resumen-dia', async (c) => {
+    const sinPermiso = requiere(c, 'consultar');
+    if (sinPermiso) return sinPermiso;
+    const fecha = c.req.query('fecha');
+    if (fecha !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(fecha)) return error(c, 400, 'FECHA_INVALIDA', 'fecha: usa AAAA-MM-DD.');
+    return c.json(await resumenDelDia(dep.db, c.get('llave').empresaId, fecha));
   });
 
   app.get('/v1/comprobantes', async (c) => {

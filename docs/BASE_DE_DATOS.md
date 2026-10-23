@@ -276,11 +276,16 @@ Si llega la misma clave con el mismo cuerpo → misma respuesta; con otro cuerpo
 - `compra_items`: producto, cantidad, costo.
 - `metas`: `empresa_id`, `tipo` (`MARGEN_SEMANAL`), `monto` (S/ 3,000).
 
-### Cobros y seguimiento
-- `pagos`: `fecha`, `monto`, `medio` (`YAPE`, `PLIN`, `EFECTIVO`, `TRANSFERENCIA`,
-  `TARJETA`, `PASARELA`), `referencia_operacion`, `movimiento_bancario_id`.
-- `pagos_aplicados`: `pago_id`, `comprobante_id`, `cuota_id`, `monto`.
-- `consultas_estado_cpe`: resultado periódico del estado de cada comprobante en SUNAT.
+### Cobros y seguimiento — programado en la fase 7 (`008_cobros.sql`)
+- `pagos`: `comprobante_id`, `fecha`, `monto`, `medio` (`YAPE`, `PLIN`, `EFECTIVO`,
+  `TRANSFERENCIA`, `TARJETA`, `PASARELA`, `OTRO`), `referencia_operacion` (única por medio:
+  el mismo Yape no se registra dos veces), anulación con motivo (no se borra ni se edita).
+  *Simplificación respecto al diseño inicial:* cada pago va a un solo comprobante, así que la
+  tabla intermedia `pagos_aplicados` no hizo falta.
+- `comprobante_cuotas.monto_pagado`: hasta dónde cubren los pagos cada cuota (en orden de vencimiento).
+- `comprobantes.estado_pago` se recalcula desde los pagos y las notas de crédito vigentes.
+- Pendiente: consulta automática del estado en SUNAT (`billConsultService`, requiere el usuario SOL
+  de producción). Hoy los rechazos se detectan y avisan al momento del envío.
 
 ### Devoluciones
 - `devoluciones`: `comprobante_origen_id`, `nota_credito_id`, `tipo` (`TOTAL`, `PARCIAL`).

@@ -8,6 +8,7 @@
  *   - Queda en la cola de envíos para la fase 4 (envío a SUNAT).
  */
 import { dec, sumar, type Decimal } from '../dinero.js';
+import { recalcularCobro } from '../cobros/pagos.js';
 import { codigoErrorPg, enTransaccion, restriccionPg, type Db, type Tx } from '../db/conexion.js';
 import { ahoraLima } from '../fechas.js';
 import { TipoComprobante, idComprobanteLegible } from '../tipos.js';
@@ -191,6 +192,9 @@ async function emitirEnTransaccion(tx: Tx, p: PedidoEmision): Promise<string> {
      VALUES ($1, 'EMITIDO_LOCAL', $2, $3, $4)`,
     [id, `Emitido ${idComprobanteLegible(c.serie, numero)}`, p.usuarioId ?? null, p.apiLlaveId ?? null],
   );
+
+  // Una nota de crédito reduce lo que debe el cliente del comprobante original.
+  if (referenciaId) await recalcularCobro(tx, referenciaId);
 
   // ⚠️ El plazo legal exacto se confirmará en la fase 4; por ahora 3 días calendario para facturas.
   await tx.query(

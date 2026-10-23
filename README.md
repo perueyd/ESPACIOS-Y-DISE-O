@@ -13,6 +13,8 @@ de baja directamente a SUNAT (SEE - Del Contribuyente), sin proveedores externos
 | 4. Envío a SUNAT beta | ✅ Aprobada (prueba real en beta superada) |
 | 5. PDF con QR | ✅ Lista para revisión (A4 y ticket 80 mm) |
 | 6. API y conexión con la tienda | ✅ Lista para revisión |
+| 7. Cobros y estado de pago | ✅ Lista para revisión |
+| 8. Inventario, compras y margen | En desarrollo |
 
 Hoy el sistema valida, calcula el IGV, numera sin saltos, guarda en PostgreSQL, genera
 el XML, lo firma y lo envía a SUNAT **beta** con reintentos automáticos. Producción está
@@ -105,6 +107,8 @@ npm run cola:procesar     # una vuelta; en producción se programa cada minuto
 | `src/pdf/` | Representación impresa (PDF A4 y ticket) con QR |
 | `src/api/` | API HTTP, llaves por canal y lectura de pedidos |
 | `src/empresas/` | Alta y configuración de empresas |
+| `src/cobros/` | Pagos, saldo, cuotas y vencimientos |
+| `src/reportes/` | Resumen del día y otros reportes |
 | `db/migraciones/` | Estructura de la base de datos (SQL) |
 | `tests/` | Pruebas automáticas |
 | `docs/` | Plan, diseño de la base de datos y ejemplos de XML |

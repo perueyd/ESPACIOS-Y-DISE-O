@@ -5,6 +5,7 @@
  * Regla de dinero: los montos deben llegar como TEXTO ("59.90"), nunca como número
  * de JavaScript, para no arrastrar errores de punto flotante desde la tienda.
  */
+import { MEDIOS_PAGO, type MedioPago } from '../cobros/pagos.js';
 import type { SolicitudComprobante } from '../comprobantes/preparar.js';
 import { ahoraLima } from '../fechas.js';
 import { Afectacion, TipoComprobante, type Cuota, type FormaPago, type ItemEntrada } from '../tipos.js';
@@ -34,6 +35,8 @@ export interface PedidoApi {
   pedido: string;
   marca?: string;
   solicitud: SolicitudComprobante;
+  /** Pago ya confirmado (ej. Yape): se registra por el total al emitir. */
+  pago?: { medio: MedioPago; referencia?: string };
 }
 
 type R<T> = { ok: true; valor: T } | { ok: false; errores: string[] };
@@ -142,6 +145,17 @@ export function leerPedido(cuerpo: unknown, hoy = ahoraLima()): R<PedidoApi> {
     }
   }
 
+  let pago: PedidoApi['pago'];
+  if (cuerpo.pago !== undefined) {
+    const medio = texto(esObjeto(cuerpo.pago) ? cuerpo.pago.medio : undefined)?.toUpperCase() as MedioPago | undefined;
+    if (!esObjeto(cuerpo.pago) || !medio || !MEDIOS_PAGO.includes(medio)) {
+      errores.push(`pago: indica { "medio": ${MEDIOS_PAGO.map((m) => `"${m}"`).join(' | ')}, "referencia": "nº de operación" }.`);
+    } else {
+      const referencia = texto(cuerpo.pago.referencia);
+      pago = { medio, ...(referencia ? { referencia } : {}) };
+    }
+  }
+
   const fecha = texto(cuerpo.fecha) ?? hoy.fecha;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) errores.push('fecha: usa el formato AAAA-MM-DD.');
 
@@ -154,6 +168,7 @@ export function leerPedido(cuerpo: unknown, hoy = ahoraLima()): R<PedidoApi> {
     valor: {
       pedido,
       ...(texto(cuerpo.marca) ? { marca: texto(cuerpo.marca)! } : {}),
+      ...(pago ? { pago } : {}),
       solicitud: {
         tipo,
         serie,
