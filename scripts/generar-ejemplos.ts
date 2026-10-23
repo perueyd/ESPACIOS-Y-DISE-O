@@ -1,5 +1,5 @@
 /**
- * Genera XML de ejemplo (sin firmar) en docs/ejemplos/ para revisarlos a mano
+ * Genera XML de ejemplo en docs/ejemplos/ (uno de ellos firmado con un certificado ficticio) para revisarlos a mano
  * o mostrárselos al contador. Uso: npm run ejemplos
  * Los datos son ficticios.
  */
@@ -11,7 +11,10 @@ import { generarXmlComprobante } from '../src/xml/comprobante.js';
 import { nombreArchivoComprobante, nombreArchivoResumen } from '../src/xml/nombres.js';
 import { generarXmlComunicacionBaja, generarXmlResumenDiario, idResumen } from '../src/xml/resumenes.js';
 import { TipoComprobante, type Comprobante } from '../src/tipos.js';
+import { leerPfx } from '../src/firma/certificado.js';
+import { firmarXml } from '../src/firma/firmar.js';
 import { contextoPrueba, empresaPrueba, item, solicitudBoleta, solicitudFactura } from '../tests/ayudantes.js';
+import { crearPfxPrueba } from '../tests/certificado-prueba.js';
 
 const CARPETA = fileURLToPath(new URL('../docs/ejemplos/', import.meta.url));
 
@@ -55,6 +58,13 @@ const archivos: [string, string][] = [
     ),
   ],
 ];
+// Ejemplo firmado con un certificado FICTICIO generado al momento (no sirve ante SUNAT).
+const certFicticio = leerPfx(crearPfxPrueba(), 'clave-de-prueba');
+archivos.push([
+  `${nombreArchivoComprobante(ruc, boleta.tipo, boleta.serie, boleta.numero)}-firmado`,
+  firmarXml(generarXmlComprobante(boleta), certFicticio).xmlFirmado,
+]);
+
 for (const [nombre, xml] of archivos) {
   await writeFile(`${CARPETA}${nombre}.xml`, xml);
   console.log(`✔ docs/ejemplos/${nombre}.xml`);

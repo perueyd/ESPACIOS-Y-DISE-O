@@ -1,6 +1,6 @@
 # Plan del facturador electrónico — Fase 1 (plan y diseño)
 
-> Estado: fase 1 aprobada; fase 2 lista para revisión (ver sección 7).
+> Estado: fases 1 y 2 aprobadas; fase 3 lista para revisión (ver sección 8).
 > Fecha: 23-oct-2026.
 
 ---
@@ -239,7 +239,58 @@ se puede cambiar cualquiera sin rehacer el trabajo):
 - Para las próximas fases: falta el aislamiento por empresa con *Row Level Security*
   (fase 6, junto con los roles de usuario y las llaves de API).
 
-## 8. Decisiones que siguen abiertas
+## 8. Fase 3 — Firma digital (resultado)
+
+**Qué quedó hecho**
+
+- Lectura del certificado `.pfx`: contraseña equivocada, archivo inválido, certificado
+  vencido o aún no vigente → mensaje claro. Si el `.pfx` trae la cadena de certificados,
+  se elige el que corresponde a la llave.
+- Firma XMLDSig *enveloped* dentro de `ext:ExtensionContent`, con `Id="SignatureSP"`,
+  C14N inclusiva y el certificado incluido (`X509Certificate`). Sirve para facturas,
+  boletas, notas de crédito, resúmenes diarios y comunicaciones de baja.
+- Cada firma se verifica antes de entregarse. En las pruebas, además, la revisa un
+  **verificador independiente** (Python, otras librerías) y se valida otra vez contra
+  el esquema UBL 2.1, ahora con la firma real.
+- Certificado guardado **cifrado** (AES-256-GCM) con una llave maestra que solo está
+  en variables de entorno. El cifrado queda atado a la empresa: copiarlo a otra no sirve.
+- Firma única por comprobante: se guarda el XML firmado (sin sobrescribir), su huella
+  SHA-256, el `DigestValue` (va en el PDF/QR), el certificado y el algoritmo usados.
+  Si se pide firmar otra vez, devuelve el mismo XML; si alguien altera el archivo, se detecta.
+- Comandos nuevos: `npm run llave:generar` y `npm run certificado:cargar`.
+- 153 pruebas automáticas pasando.
+
+**Error encontrado y corregido por las pruebas:** con 5 procesos firmando a la vez el
+mismo comprobante, uno podía no ver la firma recién guardada por otro. El índice único
+impedía la doble firma, pero ese proceso fallaba. Se corrigió consultando el archivo
+después de tomar el bloqueo.
+
+**Pendiente de confirmar en SUNAT beta (fase 4)** ⚠️
+
+1. **Algoritmo:** Greenter (aceptado por SUNAT) usa RSA-SHA1. No pude confirmar en la
+   documentación oficial si SUNAT acepta SHA-256. Es configurable (`FIRMA_ALGORITMO`);
+   por defecto SHA1. En beta se probarán ambos.
+2. Si SUNAT exige registrar el certificado en Operaciones en Línea (SOL) antes de usarlo.
+3. Requisitos del certificado (por ejemplo, que el RUC figure en sus datos).
+
+**Revisión de seguridad de la fase 3**
+
+- La llave privada y la contraseña del `.pfx` solo existen en memoria al firmar; no se
+  escriben en registros, auditoría ni mensajes de error. La contraseña se pide por
+  teclado sin mostrarse.
+- `node-forge` tiene un aviso de seguridad (GHSA-86w9-cpqp-85rv) sobre su
+  *verificación* de firmas RSA. Solo lo usamos para abrir el `.pfx`; la firma y la
+  verificación las hace el módulo `crypto` de Node.
+- Cuando verificamos nuestros propios comprobantes exigimos NUESTRO certificado: una
+  firma válida de otro certificado se rechaza.
+- El almacén de archivos no sobrescribe y rechaza rutas como `../` o `/etc/...`.
+- La base de datos impide cambiar una firma registrada, reactivar o borrar certificados,
+  y tener dos XML firmados para el mismo comprobante.
+- `.gitignore` bloquea `*.pfx`, `*.p12`, `*.pem`, `*.key`, `.env` y la carpeta `almacen/`.
+- Para más adelante: rotación de la llave maestra (volver a cifrar con una nueva) y
+  almacenamiento en la nube con bloqueo de objetos (fase 4).
+
+## 9. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 

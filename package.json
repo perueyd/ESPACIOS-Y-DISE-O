@@ -1,6 +1,6 @@
 {
   "name": "facturador-sunat",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Facturador electrónico propio para SUNAT (SEE - Del Contribuyente)",
   "type": "module",
@@ -13,15 +13,21 @@
     "test:watch": "vitest",
     "db:migrar": "tsx scripts/migrar.ts",
     "db:prueba": "bash scripts/db-prueba.sh",
-    "ejemplos": "tsx scripts/generar-ejemplos.ts"
+    "ejemplos": "tsx scripts/generar-ejemplos.ts",
+    "llave:generar": "tsx scripts/generar-llave.ts",
+    "certificado:cargar": "tsx scripts/cargar-certificado.ts"
   },
   "dependencies": {
+    "@xmldom/xmldom": "^0.9.12",
     "decimal.js": "^10.6.0",
+    "node-forge": "^1.4.0",
     "pg": "^8.23.1",
+    "xml-crypto": "^6.4.0",
     "xmlbuilder2": "^4.0.3"
   },
   "devDependencies": {
     "@types/node": "^22.20.5",
+    "@types/node-forge": "^1.3.14",
     "@types/pg": "^8.23.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

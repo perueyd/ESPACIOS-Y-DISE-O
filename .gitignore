@@ -26,3 +26,7 @@ coverage/
 # Sistema
 .DS_Store
 Thumbs.db
+
+# Archivos generados localmente (XML firmados, CDR)
+almacen/
+*.whl
