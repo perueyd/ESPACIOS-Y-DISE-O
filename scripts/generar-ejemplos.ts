@@ -1,5 +1,5 @@
 /**
- * Genera XML de ejemplo en docs/ejemplos/ (uno de ellos firmado con un certificado ficticio) para revisarlos a mano
+ * Genera XML y PDF de ejemplo en docs/ejemplos/ (firmados con un certificado ficticio) para revisarlos a mano
  * o mostrárselos al contador. Uso: npm run ejemplos
  * Los datos son ficticios.
  */
@@ -13,6 +13,7 @@ import { generarXmlComunicacionBaja, generarXmlResumenDiario, idResumen } from '
 import { TipoComprobante, type Comprobante } from '../src/tipos.js';
 import { leerPfx } from '../src/firma/certificado.js';
 import { firmarXml } from '../src/firma/firmar.js';
+import { generarPdf } from '../src/pdf/representacion.js';
 import { contextoPrueba, empresaPrueba, item, solicitudBoleta, solicitudFactura } from '../tests/ayudantes.js';
 import { crearPfxPrueba } from '../tests/certificado-prueba.js';
 
@@ -68,4 +69,18 @@ archivos.push([
 for (const [nombre, xml] of archivos) {
   await writeFile(`${CARPETA}${nombre}.xml`, xml);
   console.log(`✔ docs/ejemplos/${nombre}.xml`);
+}
+
+// PDF de ejemplo en ambos formatos (con la marca "PRUEBA - SIN VALOR LEGAL").
+const firmaFactura = firmarXml(generarXmlComprobante(factura), certFicticio);
+for (const [c, hash, nombre] of [
+  [factura, firmaFactura.digestValue, nombreArchivoComprobante(ruc, factura.tipo, factura.serie, factura.numero)],
+  [boleta, firmarXml(generarXmlComprobante(boleta), certFicticio).digestValue, nombreArchivoComprobante(ruc, boleta.tipo, boleta.serie, boleta.numero)],
+] as const) {
+  for (const formato of ['A4', 'TICKET_80'] as const) {
+    const pdf = await generarPdf({ comprobante: c, hashFirma: hash, estado: 'ACEPTADO', ambiente: 'BETA', marca: 'Espacios y Diseño' }, formato);
+    const archivo = `${nombre}${formato === 'TICKET_80' ? '-ticket' : '-A4'}.pdf`;
+    await writeFile(`${CARPETA}${archivo}`, pdf);
+    console.log(`✔ docs/ejemplos/${archivo}`);
+  }
 }

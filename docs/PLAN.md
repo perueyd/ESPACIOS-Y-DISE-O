@@ -1,6 +1,6 @@
 # Plan del facturador electrónico — Fase 1 (plan y diseño)
 
-> Estado: fases 1, 2 y 3 aprobadas; fase 4 lista para revisión, prueba real en beta superada (ver sección 9).
+> Estado: fases 1 a 4 aprobadas (prueba real en beta superada); fase 5 lista para revisión (ver sección 10).
 > Fecha: 23-oct-2026.
 
 ---
@@ -377,7 +377,39 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
 - Riesgo conocido y aceptado: si el proceso se cae justo después de que SUNAT aceptó y
   antes de guardar la respuesta, el reintento recibirá 1033. Queda para revisar, no se duplica.
 
-## 10. Decisiones que siguen abiertas
+## 10. Fase 5 — PDF con QR (resultado)
+
+**Qué quedó hecho**
+
+- Representación impresa de factura, boleta y nota de crédito en **dos formatos**:
+  - **A4**, para enviar por WhatsApp o correo. Tiene tabla de productos, varias páginas si hace
+    falta (repite el encabezado de la tabla) y logo opcional.
+  - **Ticket de 80 mm** para impresora térmica: una sola tira, con el alto justo.
+- **El formato se elige en cada pedido.** Si no se indica, se usa el **formato por defecto del
+  canal** (columna `canales.formato_pdf`; por ejemplo, tienda web → A4 y venta en persona → ticket).
+- Contenido: emisor, RUC, tipo y número, fecha, cliente (o "CLIENTES VARIOS"), moneda, forma
+  de pago y cuotas, documento que modifica y motivo (notas de crédito), detalle, operaciones
+  gravadas/exoneradas/inafectas, IGV, total, monto en letras, **código hash** de la firma,
+  **QR** y la leyenda *"Representación impresa de la … Consulte su validez en www.sunat.gob.pe"*.
+- QR: `RUC|TIPO|SERIE|NÚMERO|IGV|TOTAL|FECHA|TIPO DOC|NÚMERO DOC|` (mismo orden que Greenter). ⚠️
+  Confirmar contra el anexo vigente de SUNAT.
+- Protecciones: los PDF del ambiente **BETA** llevan la marca **"PRUEBA - SIN VALOR LEGAL"**, en
+  diagonal y en horizontal. Los **anulados** llevan la marca "ANULADO". Un comprobante
+  **rechazado** o **sin firmar** no se imprime.
+- Ejemplos en `docs/ejemplos/*.pdf`.
+- **212 pruebas automáticas** pasando. Las del PDF leen el texto con `pdftotext` y **escanean el
+  QR desde la imagen** (`pdftoppm` + `jsQR`), como lo haría un celular.
+
+**Revisión de seguridad de la fase 5**
+
+- El PDF se arma desde los datos guardados y firmados. No se interpreta HTML ni código, así que no
+  hay riesgo de inyección.
+- El logo se lee del almacén con las mismas reglas de rutas (sin `../`). Si la imagen es inválida,
+  se imprime sin logo y no se cae.
+- La marca "SIN VALOR LEGAL" impide que un PDF de pruebas se haga pasar por un comprobante real.
+- El QR solo contiene datos que ya figuran impresos en el comprobante.
+
+## 11. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 

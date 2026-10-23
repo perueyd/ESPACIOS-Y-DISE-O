@@ -10,8 +10,8 @@ de baja directamente a SUNAT (SEE - Del Contribuyente), sin proveedores externos
 | 1. Plan y diseño de base de datos | ✅ Aprobada |
 | 2. Generación de XML | ✅ Aprobada |
 | 3. Firma digital | ✅ Aprobada |
-| 4. Envío a SUNAT beta | ✅ Lista para revisión (prueba real en beta superada) |
-| 5. PDF con QR | Pendiente |
+| 4. Envío a SUNAT beta | ✅ Aprobada (prueba real en beta superada) |
+| 5. PDF con QR | ✅ Lista para revisión (A4 y ticket 80 mm) |
 | 6. API y conexión con la tienda | Pendiente |
 
 Hoy el sistema valida, calcula el IGV, numera sin saltos, guarda en PostgreSQL, genera
@@ -27,13 +27,14 @@ bloqueada hasta tu autorización.
 5. Genera el XML UBL 2.1 que pide SUNAT.
 6. Lo firma con el Certificado Digital Tributario de la empresa (guardado cifrado) y guarda el XML firmado.
 7. Lo envía a SUNAT y guarda la constancia (CDR). Si SUNAT no responde, lo reintenta solo.
-8. *(Próximas fases)* Genera el PDF con QR y se conecta con la tienda.
+8. Genera el PDF con QR en A4 o ticket de 80 mm (a elección).
+9. *(Próxima fase)* API para conectar la tienda y otros canales.
 
 ## Cómo usarlo (para desarrollo)
 
 Necesitas Node.js 22 o superior y PostgreSQL 15 o superior. Para las pruebas, además:
-`xmllint` (valida el esquema UBL) y Python 3 con `lxml` y `cryptography` (verificador
-independiente de firmas).
+`xmllint` (valida el esquema UBL), `pdftotext`/`pdftoppm`/`pdfinfo` (poppler-utils) y Python 3
+con `lxml` y `cryptography` (verificador independiente de firmas).
 
 ```bash
 npm install                      # instala las librerías
@@ -92,6 +93,7 @@ npm run cola:procesar     # una vuelta; en producción se programa cada minuto
 | `src/comprobantes/` | Emisión, firma y anulación de comprobantes |
 | `src/sunat/` | Cliente del servicio web de SUNAT, CDR y códigos de error |
 | `src/cola/` | Cola de envíos con reintentos automáticos |
+| `src/pdf/` | Representación impresa (PDF A4 y ticket) con QR |
 | `db/migraciones/` | Estructura de la base de datos (SQL) |
 | `tests/` | Pruebas automáticas |
 | `docs/` | Plan, diseño de la base de datos y ejemplos de XML |
@@ -103,4 +105,4 @@ npm run cola:procesar     # una vuelta; en producción se programa cada minuto
 - [`docs/BASE_DE_DATOS.md`](docs/BASE_DE_DATOS.md) — diseño de la base de datos.
 - [`docs/GUIA_CERTIFICADO.md`](docs/GUIA_CERTIFICADO.md) — cómo obtener el certificado digital en SUNAT.
 - [`docs/PRUEBA_BETA.md`](docs/PRUEBA_BETA.md) — cómo hacer la prueba real en SUNAT beta.
-- [`docs/ejemplos/`](docs/ejemplos/) — XML de ejemplo con datos ficticios.
+- [`docs/ejemplos/`](docs/ejemplos/) — XML y PDF de ejemplo con datos ficticios.
