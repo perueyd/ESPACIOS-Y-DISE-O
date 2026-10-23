@@ -1,0 +1,61 @@
+/**
+ * Genera XML de ejemplo (sin firmar) en docs/ejemplos/ para revisarlos a mano
+ * o mostrárselos al contador. Uso: npm run ejemplos
+ * Los datos son ficticios.
+ */
+import { mkdir, writeFile } from 'node:fs/promises';
+import { fileURLToPath } from 'node:url';
+import { prepararComprobante, type SolicitudComprobante } from '../src/comprobantes/preparar.js';
+import { CondicionResumen } from '../src/catalogos.js';
+import { generarXmlComprobante } from '../src/xml/comprobante.js';
+import { nombreArchivoComprobante, nombreArchivoResumen } from '../src/xml/nombres.js';
+import { generarXmlComunicacionBaja, generarXmlResumenDiario, idResumen } from '../src/xml/resumenes.js';
+import { TipoComprobante, type Comprobante } from '../src/tipos.js';
+import { contextoPrueba, empresaPrueba, item, solicitudBoleta, solicitudFactura } from '../tests/ayudantes.js';
+
+const CARPETA = fileURLToPath(new URL('../docs/ejemplos/', import.meta.url));
+
+function armar(s: SolicitudComprobante, numero: number): Comprobante {
+  const r = prepararComprobante(s, contextoPrueba);
+  if (!r.ok) throw new Error(r.errores.join('\n'));
+  return { ...r.comprobante, numero };
+}
+
+await mkdir(CARPETA, { recursive: true });
+const ruc = empresaPrueba.ruc;
+
+const factura = armar(solicitudFactura(), 1);
+const boleta = armar(solicitudBoleta(), 1);
+const nc = armar(
+  solicitudFactura({
+    tipo: TipoComprobante.NOTA_CREDITO,
+    serie: 'FC01',
+    items: [item('59.90', '1', { descripcion: 'Almohada devuelta' })],
+    notaCredito: { referencia: { tipo: '01', serie: 'F001', numero: 1 }, motivoCodigo: '07', motivoDescripcion: 'Devolución de una almohada' },
+  }),
+  1,
+);
+
+const archivos: [string, string][] = [
+  [nombreArchivoComprobante(ruc, factura.tipo, factura.serie, factura.numero), generarXmlComprobante(factura, true)],
+  [nombreArchivoComprobante(ruc, boleta.tipo, boleta.serie, boleta.numero), generarXmlComprobante(boleta, true)],
+  [nombreArchivoComprobante(ruc, nc.tipo, nc.serie, nc.numero), generarXmlComprobante(nc, true)],
+  [
+    nombreArchivoResumen(ruc, idResumen('RC', '2026-10-21', 1)),
+    generarXmlResumenDiario(
+      { empresa: empresaPrueba, correlativo: 1, fechaReferencia: '2026-10-20', fechaGeneracion: '2026-10-21', lineas: [{ comprobante: boleta, condicion: CondicionResumen.ADICIONAR }] },
+      true,
+    ),
+  ],
+  [
+    nombreArchivoResumen(ruc, idResumen('RA', '2026-10-22', 1)),
+    generarXmlComunicacionBaja(
+      { empresa: empresaPrueba, correlativo: 1, fechaReferencia: '2026-10-20', fechaGeneracion: '2026-10-22', lineas: [{ tipo: '01', serie: 'F001', numero: 1, motivo: 'Error en el RUC del cliente' }] },
+      true,
+    ),
+  ],
+];
+for (const [nombre, xml] of archivos) {
+  await writeFile(`${CARPETA}${nombre}.xml`, xml);
+  console.log(`✔ docs/ejemplos/${nombre}.xml`);
+}

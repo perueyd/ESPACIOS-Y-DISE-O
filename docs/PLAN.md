@@ -1,6 +1,6 @@
 # Plan del facturador electrónico — Fase 1 (plan y diseño)
 
-> Estado: **propuesta para aprobación**. No se ha programado nada todavía.
+> Estado: fase 1 aprobada; fase 2 lista para revisión (ver sección 7).
 > Fecha: 23-oct-2026.
 
 ---
@@ -184,7 +184,65 @@ política de privacidad y términos de uso.
 
 ---
 
-## 7. Decisiones que necesito de ti
+## 7. Fase 2 — Generación de XML (resultado)
+
+**Qué quedó hecho**
+
+- Migraciones de la base de datos: núcleo, parámetros, comprobantes, cola,
+  resúmenes, bajas y auditoría (`db/migraciones/`).
+- Cálculo de IGV con precio incluido, sin errores de punto flotante.
+- Validaciones: DNI, RUC con dígito verificador, boleta > S/ 700 (parámetro),
+  factura con RUC y razón social, régimen (Nuevo RUS sin facturas), series F/B,
+  cuotas de crédito, motivos de nota de crédito, exoneraciones vigentes,
+  caracteres inválidos y máximo de decimales.
+- Emisión en una sola transacción: correlativo sin saltos, pedido repetido
+  devuelve el mismo comprobante, nota de crédito nunca supera el saldo del original.
+- XML UBL 2.1 de factura, boleta y nota de crédito (validados contra el esquema
+  oficial OASIS UBL 2.1), resumen diario (RC) y comunicación de baja (RA).
+- Protecciones en la base: no se pueden borrar comprobantes, no se puede
+  cambiar su contenido después de emitido, la serie no retrocede, historial y
+  auditoría solo de inserción, no se pasa a producción sin registrar quién autorizó.
+- 111 pruebas automáticas, incluidas 40 emisiones simultáneas y 10 pedidos
+  repetidos simultáneos contra PostgreSQL real.
+
+**Decisiones tomadas por defecto** (las preguntas de la fase 1 seguían abiertas;
+se puede cambiar cualquiera sin rehacer el trabajo):
+
+| Pregunta | Decisión provisional |
+|---|---|
+| Repositorio | Seguimos en este repositorio; se puede mover más adelante sin perder nada. |
+| Base de datos | Cualquier PostgreSQL 15 o superior (Supabase y Neon cumplen). |
+| Envío de boletas | Una por una (el diseño también soporta resumen diario, que se usa para anular boletas). |
+| Series | Compartidas entre marcas: `F001`, `B001`, `FC01`, `BC01`. La marca queda registrada en cada comprobante. |
+| Régimen del RUC 10 | Configurable; no bloquea nada por ahora. |
+| PDF | Se decide en la fase 5. |
+
+**Pendiente de confirmar en SUNAT beta (fase 4)** ⚠️
+
+1. Código exacto para boletas sin cliente identificado ("clientes varios"). Hoy: tipo `0`.
+2. Tolerancias de redondeo que acepta SUNAT (con nuestro método la diferencia máxima es S/ 0.01).
+3. Catálogo 09 (motivos de nota de crédito) y demás catálogos contra la versión oficial vigente.
+4. Plazos de envío y de baja, y el impacto de la R.S. 000048-2026 desde el 1-ene-2027.
+5. Límite de líneas por resumen diario (hoy 500).
+
+**Revisión de seguridad de la fase 2**
+
+- Todas las consultas a la base usan parámetros (sin riesgo de inyección SQL).
+- El XML escapa automáticamente los caracteres especiales (`&`, `<`, comillas).
+- Se agregó el rechazo de caracteres de control invisibles, que habrían producido XML inválido.
+- Se agregó un límite de 10 decimales en cantidades y precios: la base los habría redondeado
+  sin avisar y lo guardado no habría coincidido con lo calculado.
+- Se agregó un manejador de errores de conexión para que un corte de la base no tumbe el proceso.
+- No hay claves, certificados ni contraseñas en el código. La única contraseña escrita es
+  la de la base de pruebas local (`facturador`), que no sirve fuera de tu computadora.
+- Las pruebas solo borran bases cuyo nombre termina en `_pruebas`, para no tocar la base real.
+- Para las próximas fases: falta el aislamiento por empresa con *Row Level Security*
+  (fase 6, junto con los roles de usuario y las llaves de API).
+
+## 8. Decisiones que siguen abiertas
+
+Mientras no respondas, se usan las decisiones provisionales de la sección 7.
+
 
 1. **Repositorio:** el prompt pide un proyecto nuevo e independiente, pero este
    repositorio se llama `espacios-y-dise-o` (nombre de una marca). ¿Lo usamos para

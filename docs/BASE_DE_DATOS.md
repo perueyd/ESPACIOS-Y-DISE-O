@@ -1,6 +1,7 @@
 # Diseño de la base de datos (PostgreSQL)
 
-> Estado: **propuesta para aprobación**. Se programa en la fase 2.
+> Estado: secciones A, B y C programadas en la fase 2 (`db/migraciones/`).
+> Requiere PostgreSQL 15 o superior. *Row Level Security* se activa en la fase 6.
 > Se diseña desde ya pensando en todos los módulos futuros, aunque estos se
 > construyen después, uno por fase.
 
