@@ -30,3 +30,6 @@ Thumbs.db
 # Archivos generados localmente (XML firmados, CDR)
 almacen/
 *.whl
+
+# Resultados de pruebas contra SUNAT beta
+resultados-beta/

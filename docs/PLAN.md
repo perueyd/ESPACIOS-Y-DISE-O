@@ -1,6 +1,6 @@
 # Plan del facturador electrónico — Fase 1 (plan y diseño)
 
-> Estado: fases 1 y 2 aprobadas; fase 3 lista para revisión (ver sección 8).
+> Estado: fases 1, 2 y 3 aprobadas; fase 4 lista para revisión (ver sección 9).
 > Fecha: 23-oct-2026.
 
 ---
@@ -290,7 +290,72 @@ después de tomar el bloqueo.
 - Para más adelante: rotación de la llave maestra (volver a cifrar con una nueva) y
   almacenamiento en la nube con bloqueo de objetos (fase 4).
 
-## 9. Decisiones que siguen abiertas
+## 9. Fase 4 — Envío a SUNAT beta (resultado)
+
+**Qué quedó hecho**
+
+- **Cliente de SUNAT** (`billService`, SOAP con usuario y clave): `sendBill`
+  (facturas, boletas, notas), `sendSummary` y `getStatus` (resúmenes y bajas, con
+  ticket). El formato sale del WSDL oficial. Empaqueta el XML en ZIP y lee la
+  constancia (CDR): aceptado, aceptado con observaciones o rechazado.
+- **Beta sin certificado ni Clave SOL:** usuario público `RUC + MODDATOS`.
+  Producción usa el usuario SOL secundario, guardado cifrado, y además exige
+  `SUNAT_PERMITIR_PRODUCCION=si` (doble candado).
+- **Cola con reintentos automáticos:** si SUNAT no responde, el comprobante queda
+  `PENDIENTE_ENVIO` y se reintenta solo (1, 2, 5, 10, 30, 60, 120 y luego cada 240
+  minutos). **Nunca se descarta.** Avisa al 5.º intento y cuando se acerca el plazo legal.
+- **Sin duplicados:** cada reintento envía exactamente el mismo XML firmado. Si SUNAT
+  dice que ya lo tiene (1032, 1033), no se reenvía: queda para revisar. Dos procesadores
+  a la vez nunca envían el mismo comprobante.
+- **Errores en español:** se cargaron los **1710 códigos oficiales de SUNAT**, con
+  explicación simple y "qué hacer" para los 32 más frecuentes. Ejemplo: *"Código 0111:
+  El usuario SOL no tiene permiso para enviar comprobantes electrónicos. Qué hacer: en
+  SOL, dale al usuario secundario los permisos de comprobantes de pago electrónicos."*
+- **Anulaciones:** facturas por comunicación de baja y boletas por resumen diario
+  (estado 3), con motivo, plazo configurable y consulta del ticket. Si SUNAT rechaza la
+  anulación, el comprobante vuelve a quedar vigente y se avisa.
+- **Alertas** (tabla `alertas`): rechazos, observaciones, SUNAT sin respuesta, plazo
+  cercano y problemas de configuración.
+- **SUNAT simulado** para las pruebas: acepta, observa, rechaza, falla, se cuelga o
+  corta la conexión, y verifica la firma de lo que recibe.
+- Comandos: `npm run sunat:beta` (prueba real en beta, ver `docs/PRUEBA_BETA.md`) y
+  `npm run cola:procesar` (una vuelta de la cola, para el cron).
+- **187 pruebas automáticas** pasando, estables en varias corridas seguidas.
+
+**Lo que falta: la prueba REAL en SUNAT beta.** Desde este entorno no se puede llegar
+a SUNAT. Todo lo de arriba está probado contra el SUNAT simulado, que imita el formato
+real pero **no reemplaza** a SUNAT. La prueba real está lista en `npm run sunat:beta`
+y confirmará:
+
+1. Que SUNAT acepta nuestros XML (boleta, factura, crédito, nota de crédito, baja).
+2. SHA1 vs SHA-256.
+3. El código para boletas sin cliente identificado.
+
+**Pendiente para producción** ⚠️
+
+- Consultar el estado de un comprobante en SUNAT (`billConsultService`, requiere el usuario
+  SOL real). Sirve para resolver los casos "ya registrado" (1033) sin intervención manual.
+- Almacenamiento en la nube con bloqueo de objetos (hoy hay una carpeta local para desarrollo).
+- Confirmar los plazos en la norma (hoy configurables: factura 3 días, resumen 7, baja 7).
+- El certificado debe estar registrado en SOL: si no, SUNAT responde 2325 *"El certificado
+  usado no es el comunicado a SUNAT"*.
+
+**Revisión de seguridad de la fase 4**
+
+- **Corregido:** el procesador tomaba hasta 20 trabajos de golpe con un bloqueo de
+  5 minutos. Si SUNAT tardaba, los últimos podían quedar con el bloqueo vencido y otro
+  procesador los habría enviado de nuevo (duplicado). Ahora toma uno a la vez, cada uno
+  con su propio bloqueo.
+- La conexión a SUNAT verifica su certificado HTTPS. Greenter desactiva esa verificación;
+  aquí no se desactiva.
+- La clave SOL viaja solo en el mensaje a SUNAT. No se guarda en los registros de envíos
+  ni en la auditoría, y en la base está cifrada y atada a la empresa.
+- La dirección de SUNAT simulado (`SUNAT_URL_BETA`) solo puede reemplazar a beta, nunca a producción.
+- Los nombres de tabla que se arman en el código vienen de una lista fija (sin riesgo de inyección SQL).
+- Riesgo conocido y aceptado: si el proceso se cae justo después de que SUNAT aceptó y
+  antes de guardar la respuesta, el reintento recibirá 1033. Queda para revisar, no se duplica.
+
+## 10. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 
