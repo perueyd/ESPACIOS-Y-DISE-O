@@ -121,6 +121,22 @@ describe.skipIf(!URL_PRUEBAS)('API HTTP', () => {
       expect(m.rows[0].marca_id).toBe(f.marcaId);
     });
 
+    it('con descuento (cupón u oferta): total rebajado, guardado y firmado con el descuento', async () => {
+      const r = await pedir('/v1/comprobantes', { cuerpo: boleta('ED-DSC', { descuento: '50.00' }) });
+      expect(r.status).toBe(201);
+      const b = (await r.json()) as { id: string };
+      expect(b).toMatchObject({ total: '300.00', descuento: '50.00', estado: 'ACEPTADO' });
+      // El XML firmado sale de lo guardado en la base: el descuento sobrevive al viaje.
+      const xml = await (await pedir(`/v1/comprobantes/${b.id}/xml`)).text();
+      expect(xml).toContain('>02</cbc:AllowanceChargeReasonCode>');
+      expect(xml).toContain('<cbc:PayableAmount currencyID="PEN">300.00</cbc:PayableAmount>');
+      // Y nadie puede cambiarlo después.
+      await expect(db.query(`UPDATE comprobantes SET descuento_global = 0, descuento_global_base = NULL WHERE id = $1`, [b.id])).rejects.toThrow(/no se puede modificar/);
+      // "0.00" = sin descuento; un número (no texto) se rechaza.
+      expect(await (await pedir('/v1/comprobantes', { cuerpo: boleta('ED-DSC0', { descuento: '0.00' }) })).json()).toMatchObject({ descuento: '0.00', total: '350.00' });
+      expect((await pedir('/v1/comprobantes', { cuerpo: boleta('ED-DSCN', { descuento: 50 }) })).status).toBe(422);
+    });
+
     it('el mismo pedido otra vez: 200, el mismo comprobante, sin volver a enviar', async () => {
       const a = (await (await pedir('/v1/comprobantes', { cuerpo: boleta('ED-2') })).json()) as { id: string };
       const r = await pedir('/v1/comprobantes', { cuerpo: boleta('ED-2') });

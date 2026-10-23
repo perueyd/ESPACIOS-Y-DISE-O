@@ -83,6 +83,14 @@ describe.each<FormatoPdf>(['A4', 'TICKET_80'])('PDF %s', (formato) => {
     expect(qr).toBe(contenidoQr(c));
   });
 
+  it('con descuento global: muestra el descuento y el total ya rebajado', async () => {
+    const c = armar(solicitudBoleta({ items: [item('354.00', '2')], descuentoGlobal: '50.00' }), 8);
+    const t = texto(await generarPdf(datos(c), formato)).replace(/\s+/g, ' ');
+    expect(t).toContain('Descuento global (sin IGV)');
+    expect(t).toContain('-42.37');
+    expect(t).toContain('658.00');
+  });
+
   it('boleta sin cliente identificado', async () => {
     const c = armar(solicitudBoleta({ serie: 'B001', cliente: { tipoDoc: TipoDocIdentidad.SIN_DOCUMENTO, numeroDoc: '-', nombre: 'CLIENTES VARIOS' } }), 7);
     const t = texto(await generarPdf(datos(c), formato)).replace(/\s+/g, ' ');

@@ -163,6 +163,9 @@ export async function cargarComprobante(q: Consultor, id: string): Promise<Compr
         valorVenta,
         precioVenta: valorVenta.plus(igv),
         importeTotal: new Decimal(c.importe_total),
+        ...(c.descuento_global_base !== null
+          ? { descuentoGlobal: { monto: new Decimal(c.descuento_global), base: new Decimal(c.descuento_global_base) } }
+          : {}),
       },
       formaPago:
         c.forma_pago === 'CREDITO'

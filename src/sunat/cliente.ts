@@ -112,11 +112,15 @@ export class ClienteSunatSoap implements ClienteSunat {
       throw new ErrorConexionSunat(`${motivo}.`);
     }
     const cuerpo = await r.text().catch(() => '');
+    // Ante fallas, SUNAT a veces responde una página HTML en vez de SOAP: esa no se lee como XML
+    // (evita errores de lectura sin sentido en la consola) y cae en el error HTTP de abajo.
     let doc: Document | undefined;
-    try {
-      doc = cuerpo ? (new DOMParser().parseFromString(cuerpo, 'text/xml') as unknown as Document) : undefined;
-    } catch {
-      doc = undefined;
+    if (/<([\w.-]+:)?Envelope[\s>]/.test(cuerpo)) {
+      try {
+        doc = new DOMParser({ onError: () => undefined }).parseFromString(cuerpo, 'text/xml') as unknown as Document;
+      } catch {
+        doc = undefined;
+      }
     }
     const faultcode = doc ? texto(doc, 'faultcode') : undefined;
     if (doc && faultcode !== undefined) {
@@ -124,7 +128,12 @@ export class ClienteSunatSoap implements ClienteSunat {
       throw new ErrorRespuestaSunat(codigoDeFault(faultcode, faultstring), faultstring, r.status);
     }
     if (!r.ok || !doc) {
-      throw new ErrorConexionSunat(`SUNAT respondió con un error HTTP ${r.status}.`, r.status);
+      throw new ErrorConexionSunat(
+        r.status === 401
+          ? 'SUNAT no aceptó el usuario y clave (HTTP 401). En beta suele ser una falla pasajera del servidor de pruebas y se reintenta solo; en producción, revisa el usuario SOL secundario (npm run sol:configurar).'
+          : `SUNAT respondió con un error HTTP ${r.status}. Se reintentará automáticamente.`,
+        r.status,
+      );
     }
     return doc;
   }

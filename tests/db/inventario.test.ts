@@ -174,6 +174,9 @@ describe.skipIf(!URL_PRUEBAS)('inventario', () => {
     // Ventas: 600 + 50 − 300 = 350; costo: 300 − 150 = 150; margen sobre lo con costo: 300 − 150 = 150.
     expect(m).toMatchObject({ ventas: '350.00', costo: '150.00', margen: '150.00', porcentaje: '50.0', sinCosto: { items: 1, ventas: '50.00' } });
     expect(m.meta).toEqual({ monto: '3000.00', cumplimiento: '5.0' });
+    // Un descuento global (cupón) baja la venta y el margen.
+    await emitir(solicitudBoleta({ fechaEmision: hoy, items: [item('354.00', '1')], descuentoGlobal: '59.00' })); // −50.00 sin IGV
+    expect(await margenSemanal(db, f.empresaId, hoy)).toMatchObject({ ventas: '600.00', costo: '300.00', margen: '250.00' });
     expect(new Date(`${m.desde}T00:00:00Z`).getUTCDay()).toBe(1); // lunes
   });
 

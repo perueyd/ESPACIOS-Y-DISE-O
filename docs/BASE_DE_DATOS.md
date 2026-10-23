@@ -260,6 +260,11 @@ Si llega la misma clave con el mismo cuerpo → misma respuesta; con otro cuerpo
 
 ## D. Módulos futuros (se diseñan ahora, se programan después)
 
+### Descuento global (`010_descuento_global.sql`)
+- `comprobantes.descuento_global` y `descuento_global_base`: descuento que rebaja la base imponible
+  (catálogo 53, código 02), sin IGV, y la base gravada antes del descuento. `total_gravado` ya es el
+  neto. Solo en facturas y boletas, e inmutable como el resto del comprobante.
+
 ### Inventario y compras — programado en la fase 8 (`009_inventario.sql`)
 - `movimientos_stock`: `producto_id`, `tipo` (`VENTA`, `DEVOLUCION`, `COMPRA`, `AJUSTE`,
   `ANULACION`), `cantidad` (+ entra, − sale), `costo_unitario`, `comprobante_id` o `compra_id`,

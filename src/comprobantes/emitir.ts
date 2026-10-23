@@ -158,8 +158,8 @@ async function emitirEnTransaccion(tx: Tx, p: PedidoEmision): Promise<string> {
        marca_id, canal_id, pedido_externo_id, forma_pago,
        total_gravado, total_exonerado, total_inafecto, total_igv, importe_total, parametros_usados,
        comprobante_referencia_id, motivo_nota_codigo, motivo_nota_texto,
-       ambiente_sunat, emitido_por_usuario, emitido_por_llave)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
+       ambiente_sunat, emitido_por_usuario, emitido_por_llave, descuento_global, descuento_global_base)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31)
      RETURNING id`,
     [
       p.empresaId, filaSerie.id, c.tipo, c.serie, numero, c.fechaEmision, c.horaEmision, c.moneda,
@@ -174,6 +174,7 @@ async function emitirEnTransaccion(tx: Tx, p: PedidoEmision): Promise<string> {
       }),
       referenciaId ?? null, c.notaCredito?.motivoCodigo ?? null, c.notaCredito?.motivoDescripcion ?? null,
       ctx.ambiente, p.usuarioId ?? null, p.apiLlaveId ?? null,
+      c.totales.descuentoGlobal?.monto.toFixed(2) ?? '0', c.totales.descuentoGlobal?.base.toFixed(2) ?? null,
     ],
   );
   const id = ins.rows[0].id as string;

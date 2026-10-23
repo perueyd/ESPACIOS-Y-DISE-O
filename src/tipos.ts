@@ -92,6 +92,12 @@ export interface Totales {
   precioVenta: Decimal;
   /** Importe total a pagar (PayableAmount). */
   importeTotal: Decimal;
+  /**
+   * Descuento global que rebaja la base gravada (catálogo 53, código 02), sin IGV.
+   * `base` es el valor de venta gravado ANTES del descuento. Con descuento, `gravado`
+   * ya viene neto y el IGV se calcula sobre ese neto.
+   */
+  descuentoGlobal?: { monto: Decimal; base: Decimal };
 }
 
 export interface Cuota {

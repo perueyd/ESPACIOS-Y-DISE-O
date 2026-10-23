@@ -90,6 +90,39 @@ describe('IGV con precio incluido', () => {
   });
 });
 
+describe('descuento global (catálogo 53, código 02)', () => {
+  const items = () => [calcularItem(item('354.00', '2'), IGV), calcularItem(item('15.00', '1', { afectacion: Afectacion.EXONERADO }), IGV)];
+
+  it('el cliente paga exactamente la suma de ítems menos el descuento', () => {
+    const t = calcularTotales(items(), { conIgv: dec('50.00'), igvTasa: IGV });
+    // Gravado con IGV 708.00 − 50.00 = 658.00 → base 557.63 + IGV 100.37; más 15.00 exonerado.
+    expect(t.importeTotal.toFixed(2)).toBe('673.00');
+    expect(t.gravado.toFixed(2)).toBe('557.63');
+    expect(t.igv.toFixed(2)).toBe('100.37');
+    expect(t.exonerado.toFixed(2)).toBe('15.00');
+    expect(t.descuentoGlobal?.base.toFixed(2)).toBe('600.00'); // base gravada antes del descuento
+    expect(t.descuentoGlobal?.monto.toFixed(2)).toBe('42.37');  // 600.00 − 557.63
+  });
+
+  it('miles de descuentos al azar: total exacto e IGV ≈ base neta × 18 %', () => {
+    let semilla = 777;
+    const azar = () => (semilla = (semilla * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let i = 0; i < 3000; i++) {
+      const lista = [calcularItem(item((Math.floor(azar() * 300000) / 100 + 1).toFixed(2), String(1 + Math.floor(azar() * 5))), IGV)];
+      const bruto = lista[0]!.total;
+      const descuento = redondear(bruto.times(azar() * 0.9)).plus('0.01');
+      const t = calcularTotales(lista, { conIgv: descuento, igvTasa: IGV });
+      expect(t.importeTotal.eq(bruto.minus(descuento))).toBe(true);
+      expect(t.igv.minus(t.gravado.times(IGV)).abs().lte('0.01')).toBe(true);
+      if (t.descuentoGlobal) expect(t.descuentoGlobal.base.minus(t.descuentoGlobal.monto).eq(t.gravado)).toBe(true);
+    }
+  });
+
+  it('un descuento igual o mayor que lo gravado se rechaza', () => {
+    expect(() => calcularTotales(items(), { conIgv: dec('708.00'), igvTasa: IGV })).toThrow(/menor que el total/);
+  });
+});
+
 describe('monto en letras', () => {
   it.each([
     [0, 'CERO'],

@@ -119,6 +119,7 @@ function prepararTextos(d: DatosPdf): Lineas {
 
   const t = c.totales;
   const totales: [string, string][] = [];
+  if (t.descuentoGlobal) totales.push(['Descuento global (sin IGV)', `-${formatearMonto(t.descuentoGlobal.monto)}`]);
   if (!t.gravado.isZero()) totales.push(['Op. gravadas', formatearMonto(t.gravado)]);
   if (!t.exonerado.isZero()) totales.push(['Op. exoneradas', formatearMonto(t.exonerado)]);
   if (!t.inafecto.isZero()) totales.push(['Op. inafectas', formatearMonto(t.inafecto)]);

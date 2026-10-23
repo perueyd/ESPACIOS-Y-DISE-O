@@ -2,7 +2,7 @@
  * Validaciones de negocio ANTES de numerar y enviar un comprobante.
  * Devuelve una lista de errores en español claro; lista vacía = todo bien.
  */
-import { dec, sumar } from '../dinero.js';
+import { dec, redondear, sumar } from '../dinero.js';
 import {
   Afectacion,
   TipoComprobante,
@@ -25,6 +25,8 @@ export interface DatosAValidar {
   items: ItemEntrada[];
   totales: Totales;
   formaPago: FormaPago;
+  /** Descuento global con IGV, como texto (solo facturas y boletas). */
+  descuentoGlobal?: string;
   regimen: Regimen;
   parametros: ParametrosTributarios;
   /** Tipos de comprobante que el régimen de la empresa permite emitir (de la BD). */
@@ -100,6 +102,7 @@ export function validarComprobante(d: DatosAValidar): string[] {
 
   // Forma de pago
   errores.push(...validarFormaPago(d));
+  errores.push(...validarDescuento(d));
 
   // Nota de crédito
   if (d.tipo === TipoComprobante.NOTA_CREDITO) {
@@ -174,6 +177,27 @@ function validarCliente(d: DatosAValidar): string[] {
     if (!sinDocumento && !c.nombre.trim()) errores.push('Falta el nombre del cliente.');
   }
   return errores;
+}
+
+function validarDescuento(d: DatosAValidar): string[] {
+  if (d.descuentoGlobal === undefined) return [];
+  if (d.tipo !== TipoComprobante.FACTURA && d.tipo !== TipoComprobante.BOLETA) {
+    return ['El descuento global solo se usa en facturas y boletas. En una nota de crédito pon los montos ya rebajados.'];
+  }
+  if (!/^\d+(\.\d{1,2})?$/.test(d.descuentoGlobal) || dec(d.descuentoGlobal).lte(0)) {
+    return ['El descuento debe ser un monto mayor que cero con hasta 2 decimales, por ejemplo "50.00".'];
+  }
+  let totalGravado;
+  try {
+    totalGravado = sumar(d.items.filter((i) => i.afectacion === Afectacion.GRAVADO).map((i) => redondear(dec(i.cantidad).times(dec(i.precioUnitarioConIgv)))));
+  } catch {
+    return []; // los montos inválidos de los ítems ya se reportan aparte
+  }
+  if (totalGravado.isZero()) return ['El descuento global solo puede aplicarse a productos gravados con IGV.'];
+  if (!dec(d.descuentoGlobal).lt(totalGravado)) {
+    return [`El descuento (S/ ${dec(d.descuentoGlobal).toFixed(2)}) debe ser menor que el total de los productos gravados (S/ ${totalGravado.toFixed(2)}).`];
+  }
+  return [];
 }
 
 function validarFormaPago(d: DatosAValidar): string[] {

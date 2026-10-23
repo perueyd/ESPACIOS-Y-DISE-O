@@ -60,13 +60,36 @@ export function calcularItems(items: ItemEntrada[], igvTasa: Decimal): ItemCalcu
   return items.map((i) => calcularItem(i, igvTasa));
 }
 
-export function calcularTotales(items: ItemCalculado[]): Totales {
+/**
+ * Totales del comprobante. Con `descuentoConIgv` (descuento global, catálogo 53 código 02):
+ * el descuento se resta del total gravado CON IGV, y del resultado se separan base e IGV
+ * con el mismo criterio de los ítems. Así el cliente paga exactamente lo cobrado
+ * (total de ítems − descuento) y SUNAT ve: base gravada neta, IGV = base neta × tasa
+ * (±S/ 0.01) y el descuento sin IGV con su base bruta.
+ * Fuentes (23/10/2026): reglas 2519, 3226, 3277, 3291 del listado de errores de SUNAT
+ * (db/datos/sunat-codigos-error.xml) y la implementación homologada en beta de
+ * github.com/bacsystem/khipu (DescuentoTest.descuentoGlobalQueAfectaLaBase_codigo02).
+ */
+export function calcularTotales(items: ItemCalculado[], descuento?: { conIgv: Decimal; igvTasa: Decimal }): Totales {
   const de = (a: Afectacion) => sumar(items.filter((i) => i.afectacion === a).map((i) => i.valorVenta));
-  const gravado = de(Afectacion.GRAVADO);
+  let gravado = de(Afectacion.GRAVADO);
   const exonerado = de(Afectacion.EXONERADO);
   const inafecto = de(Afectacion.INAFECTO);
-  const igv = sumar(items.map((i) => i.igv));
+  let igv = sumar(items.map((i) => i.igv));
+  let descuentoGlobal: Totales['descuentoGlobal'];
+
+  if (descuento && descuento.conIgv.gt(0)) {
+    const totalGravado = sumar(items.filter((i) => i.afectacion === Afectacion.GRAVADO).map((i) => i.total));
+    if (!descuento.conIgv.lt(totalGravado)) throw new Error('El descuento debe ser menor que el total de los productos gravados.');
+    const neto = totalGravado.minus(descuento.conIgv);
+    const baseNeta = redondear(neto.div(descuento.igvTasa.plus(1)), 2);
+    const monto = gravado.minus(baseNeta);
+    if (monto.gt(0)) descuentoGlobal = { monto, base: gravado };
+    gravado = baseNeta;
+    igv = neto.minus(baseNeta);
+  }
+
   const valorVenta = gravado.plus(exonerado).plus(inafecto);
   const precioVenta = valorVenta.plus(igv);
-  return { gravado, exonerado, inafecto, igv, valorVenta, precioVenta, importeTotal: precioVenta };
+  return { gravado, exonerado, inafecto, igv, valorVenta, precioVenta, importeTotal: precioVenta, ...(descuentoGlobal ? { descuentoGlobal } : {}) };
 }

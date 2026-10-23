@@ -218,7 +218,7 @@ se puede cambiar cualquiera sin rehacer el trabajo):
 
 | Pregunta | Decisión provisional |
 |---|---|
-| Repositorio | Seguimos en este repositorio; se puede mover más adelante sin perder nada. |
+| Repositorio | Resuelto: renombrado a `facturador-sunat` (23/10/2026). |
 | Base de datos | Cualquier PostgreSQL 15 o superior (Supabase y Neon cumplen). |
 | Envío de boletas | Una por una (el diseño también soporta resumen diario, que se usa para anular boletas). |
 | Series | Compartidas entre marcas: `F001`, `B001`, `FC01`, `BC01`. La marca queda registrada en cada comprobante. |
@@ -500,20 +500,37 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
   el cálculo del saldo y la búsqueda de empresa por RUC quedaron en un solo lugar.
 - 256 pruebas pasando y `npm run analizar` limpio.
 
-## 14. Decisiones que siguen abiertas
+## 14. Descuento global (preparación para conectar la tienda)
+
+- La tienda cobra con cupones y ofertas automáticas. El comprobante debe decir **exactamente** lo
+  cobrado, así que la API acepta `descuento` (con IGV) y lo emite como **descuento global que
+  afecta la base imponible** (catálogo 53, código `02`).
+- Cálculo: total gravado con IGV − descuento = lo cobrado; de ahí se separan base neta e IGV con
+  el mismo criterio de los ítems. En el XML: `cac:AllowanceCharge` (02, monto sin IGV, base bruta,
+  factor solo si reproduce el monto), base gravada e IGV netos, `LineExtensionAmount` neto y sin
+  `AllowanceTotalAmount` (ese es para descuentos que NO afectan la base).
+- Fuentes (consultadas el 23/10/2026; el portal de SUNAT no es accesible desde este entorno):
+  reglas 2519, 3226, 3277 y 3291 del listado de códigos de error de SUNAT
+  (`db/datos/sunat-codigos-error.xml`), la plantilla UBL 2.1 de Greenter
+  (`github.com/thegreenter/greenter`) y la implementación de khipu homologada en SUNAT beta
+  (`github.com/bacsystem/khipu`, prueba `descuentoGlobalQueAfectaLaBase_codigo02`).
+- ✅ **Confirmado en SUNAT beta (23/10/2026):** "La Factura numero F001-2791763, ha sido aceptada"
+  y "La Boleta numero B001-2791773, ha sido aceptada", ambas con descuento global. En esa corrida,
+  SUNAT beta respondió HTTP 401 con una página HTML al azar a varios envíos (incluso a casos ya
+  aceptados antes): es una falla del servidor de pruebas. El facturador ahora lo explica con un
+  mensaje claro y lo reintenta solo.
+- Las notas de crédito no llevan descuento global: se emiten con los montos ya rebajados.
+- El margen semanal resta los descuentos. 265 pruebas pasando y `npm run analizar` limpio.
+
+## 15. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 
 
-1. **Repositorio:** el prompt pide un proyecto nuevo e independiente, pero este
-   repositorio se llama `espacios-y-dise-o` (nombre de una marca). ¿Lo usamos para
-   el facturador o creas uno nuevo (ej. `facturador-sunat`) y movemos estos
-   documentos allá?
-2. **Base de datos:** ¿Neon o Supabase? (recomiendo **Supabase**: incluye `pg_cron`
+1. **Base de datos:** ¿Neon o Supabase? (recomiendo **Supabase**: incluye `pg_cron`
    para la cola y almacenamiento de archivos en el mismo lugar).
-3. **Boletas:** ¿envío una por una (recomendado: CDR inmediato) o resumen diario?
+2. **Boletas:** ¿envío una por una (recomendado: CDR inmediato) o resumen diario?
    Las anulaciones de boletas igual irán por resumen diario.
-4. **Series:** propuesta `B001` (boletas), `F001` (facturas), `BC01`/`FC01`
+3. **Series:** propuesta `B001` (boletas), `F001` (facturas), `BC01`/`FC01`
    (notas de crédito de boleta/factura). ¿Una serie por marca o compartidas?
-5. **Régimen del RUC 10** (taxi): ¿Nuevo RUS, RER, MYPE o General?
-6. **PDF:** ¿A4, ticket 80 mm o ambos?
+4. **Régimen del RUC 10** (taxi): ¿Nuevo RUS, RER, MYPE o General?
