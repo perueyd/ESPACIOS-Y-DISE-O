@@ -260,21 +260,24 @@ Si llega la misma clave con el mismo cuerpo → misma respuesta; con otro cuerpo
 
 ## D. Módulos futuros (se diseñan ahora, se programan después)
 
-### Inventario y compras
-- `almacenes`: `empresa_id`, `nombre`.
-- `movimientos_stock`: `producto_id`, `almacen_id`, `tipo` (`VENTA`, `COMPRA`,
-  `DEVOLUCION`, `AJUSTE`, `DANADO`), `cantidad` (+/−), `costo_unitario`,
-  `origen_tabla`, `origen_id`, `creado_en`. El stock = suma de movimientos
-  (nunca se edita un número a mano).
-- `proveedores`: `ruc`, `razon_social`, `estado_sunat`, `condicion_sunat`
-  (habido), `verificado_en`.
-- `compras`: `proveedor_id`, `tipo_comprobante`, `serie`, `numero`, `fecha_emision`,
-  `base_imponible`, `igv`, `total`, `estado_validacion` (`PENDIENTE`, `VALIDA`,
-  `NO_EXISTE`, `NO_RECONOCIDA`, `PROVEEDOR_NO_HABIDO`), `da_credito_fiscal`,
-  `motivo_sin_credito`, `periodo_registro` (AAAA-MM), `bancarizado`.
-  Único `(empresa_id, proveedor_ruc, tipo, serie, numero)`.
-- `compra_items`: producto, cantidad, costo.
-- `metas`: `empresa_id`, `tipo` (`MARGEN_SEMANAL`), `monto` (S/ 3,000).
+### Inventario y compras — programado en la fase 8 (`009_inventario.sql`)
+- `movimientos_stock`: `producto_id`, `tipo` (`VENTA`, `DEVOLUCION`, `COMPRA`, `AJUSTE`,
+  `ANULACION`), `cantidad` (+ entra, − sale), `costo_unitario`, `comprobante_id` o `compra_id`,
+  `motivo` (obligatorio en ajustes). **Solo se insertan**: el stock = suma de movimientos y una
+  anulación agrega el movimiento contrario, nunca borra.
+- `proveedores`: `ruc`, `razon_social`, y para el módulo de crédito fiscal `estado_sunat`,
+  `condicion_sunat`, `verificado_en`.
+- `compras`: `proveedor_id`, `tipo_comprobante`, `serie`, `numero`, `fecha_emision`, `periodo`
+  (AAAA-MM), `base_imponible`, `igv`, `otros`, `total` (la base verifica que base + IGV + otros =
+  total), `estado_validacion` (`PENDIENTE` hasta el módulo de crédito fiscal). Única por
+  `(empresa, proveedor, tipo, serie, número)`. No se borra: se anula con motivo.
+- `compra_items`: producto (opcional), cantidad, costo unitario sin IGV.
+- `productos.costo_promedio`: promedio ponderado que actualizan las compras.
+  `comprobante_items.costo_unitario` guarda el costo del momento de la venta (para el margen).
+- `metas`: `tipo` (`MARGEN_SEMANAL`), `monto`, `vigente_desde` (las semanas pasadas conservan su meta).
+- *Simplificación respecto al diseño inicial:* un solo almacén por ahora (sin tabla `almacenes`);
+  los productos dañados se registran como `AJUSTE` con su motivo. Los campos de crédito fiscal
+  (`da_credito_fiscal`, `bancarizado`) llegan con ese módulo.
 
 ### Cobros y seguimiento — programado en la fase 7 (`008_cobros.sql`)
 - `pagos`: `comprobante_id`, `fecha`, `monto`, `medio` (`YAPE`, `PLIN`, `EFECTIVO`,

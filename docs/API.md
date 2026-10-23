@@ -79,6 +79,7 @@ Cabecera en todos (salvo `salud`): `Authorization: Bearer fk_xxxxxxxxxxxx_…`
 | `cliente.tipoDocumento` | no | `DNI`, `RUC`, `CE`, `PASAPORTE`, `NINGUNO` (por defecto `NINGUNO`: boletas de hasta S/ 700) |
 | `cliente.numero`, `cliente.nombre`, `cliente.direccion` | según el caso | Factura: RUC y razón social obligatorios |
 | `items[].precio` | sí | Precio unitario **con IGV**, como texto |
+| `items[].codigo` | no | SKU del producto. Si existe en el inventario, descuenta stock y guarda el costo para el margen |
 | `items[].cantidad` | no | Entero o texto (por defecto 1) |
 | `items[].unidad` | no | `NIU` (unidad, por defecto) o `ZZ` (servicio) |
 | `items[].afectacion` | no | `GRAVADO` (por defecto), `EXONERADO`, `INAFECTO` |

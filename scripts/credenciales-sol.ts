@@ -10,7 +10,7 @@ import { parseArgs } from 'node:util';
 import { crearPool } from '../src/db/conexion.js';
 import { llaveMaestraDesdeEntorno } from '../src/seguridad/cifrado.js';
 import { guardarCredencialesSol } from '../src/sunat/configuracion.js';
-import { pedirOculto } from './lib/consola.js';
+import { empresaPorRuc, pedirOculto } from './lib/consola.js';
 
 const { values } = parseArgs({ options: { ruc: { type: 'string' }, usuario: { type: 'string' } } });
 if (!values.ruc || !values.usuario) {
@@ -20,11 +20,10 @@ if (!values.ruc || !values.usuario) {
 
 const db = crearPool();
 try {
-  const emp = await db.query(`SELECT id FROM empresas WHERE ruc = $1`, [values.ruc]);
-  if (!emp.rows[0]) throw new Error(`No existe la empresa ${values.ruc}.`);
+  const empresa = await empresaPorRuc(db, values.ruc);
   const clave = await pedirOculto(`Clave del usuario secundario ${values.usuario.toUpperCase()}: `);
   if (clave.length < 8 || clave.length > 12) throw new Error('La clave SOL tiene entre 8 y 12 caracteres.');
-  await guardarCredencialesSol(db, emp.rows[0].id, values.usuario, clave, llaveMaestraDesdeEntorno());
+  await guardarCredencialesSol(db, empresa.id, values.usuario, clave, llaveMaestraDesdeEntorno());
   console.log(`✔ Usuario SOL secundario guardado y cifrado: ${values.ruc}${values.usuario.toUpperCase()}`);
   console.log('  Solo se usará cuando la empresa pase a PRODUCCIÓN (con tu autorización).');
 } catch (e) {

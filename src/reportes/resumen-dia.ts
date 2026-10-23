@@ -2,6 +2,7 @@
  * Resumen del día: ventas, cobros por medio de pago, saldos por cobrar y
  * pendientes con SUNAT. Todo lo de ventas excluye rechazados y anulados.
  */
+import { sqlSaldo } from '../cobros/pagos.js';
 import { dec, sumar } from '../dinero.js';
 import type { Db } from '../db/conexion.js';
 import { ahoraLima } from '../fechas.js';
@@ -32,10 +33,7 @@ export async function resumenDelDia(db: Db, empresaId: string, fecha = ahoraLima
   );
   const porCobrar = await db.query(
     `SELECT count(*)::int AS comprobantes,
-            coalesce(sum(c.importe_total
-              - coalesce((SELECT sum(monto) FROM pagos p WHERE p.comprobante_id = c.id AND p.anulado_en IS NULL), 0)
-              - coalesce((SELECT sum(nc.importe_total) FROM comprobantes nc WHERE nc.comprobante_referencia_id = c.id AND nc.estado NOT IN ('RECHAZADO','ANULADO')), 0)
-            ), 0)::text AS saldo,
+            coalesce(sum(${sqlSaldo('c')}), 0)::text AS saldo,
             (SELECT count(*)::int FROM comprobante_cuotas q JOIN comprobantes cc ON cc.id = q.comprobante_id
              WHERE cc.empresa_id = $1 AND NOT q.pagada AND q.fecha_vencimiento < $2::date AND cc.estado NOT IN ('RECHAZADO','ANULADO')) AS cuotas_vencidas
      FROM comprobantes c

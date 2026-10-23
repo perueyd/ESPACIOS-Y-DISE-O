@@ -12,7 +12,8 @@ import { recalcularCobro } from '../cobros/pagos.js';
 import { codigoErrorPg, enTransaccion, restriccionPg, type Db, type Tx } from '../db/conexion.js';
 import { ahoraLima } from '../fechas.js';
 import { TipoComprobante, idComprobanteLegible } from '../tipos.js';
-import type { TipoDocIdentidad } from '../validaciones/documentos.js';
+import { TipoDocIdentidad } from '../validaciones/documentos.js';
+import { moverStockPorComprobante, productosPorSku } from '../inventario/stock.js';
 import { prepararComprobante, type SolicitudComprobante } from './preparar.js';
 import { ErrorConfiguracion, cargarComprobante, cargarContexto, type ComprobanteGuardado } from './repositorio.js';
 
@@ -22,7 +23,6 @@ export interface PedidoEmision {
   marcaId?: string;
   /** Id del pedido en el canal (ej. número de pedido de la tienda). Activa la protección contra duplicados. */
   pedidoExternoId?: string;
-  clienteId?: string;
   /** Quién emite: un usuario del panel o una llave de API. */
   usuarioId?: string;
   apiLlaveId?: string;
@@ -138,6 +138,19 @@ async function emitirEnTransaccion(tx: Tx, p: PedidoEmision): Promise<string> {
   if (!filaSerie) throw new ErrorValidacion([`La serie ${c.serie} no existe o está desactivada para este tipo de comprobante.`]);
   const numero = Number(filaSerie.ultimo_numero);
 
+  // Cliente identificado: se registra (o actualiza) para su historial de compras.
+  let clienteId: string | null = null;
+  if (c.cliente.tipoDoc !== TipoDocIdentidad.SIN_DOCUMENTO && c.cliente.numeroDoc.trim() && c.cliente.numeroDoc !== '-') {
+    const cli = await tx.query(
+      `INSERT INTO clientes (empresa_id, tipo_doc_identidad, numero_doc, nombre_razon_social, direccion) VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (empresa_id, tipo_doc_identidad, numero_doc)
+       DO UPDATE SET nombre_razon_social = EXCLUDED.nombre_razon_social, direccion = coalesce(EXCLUDED.direccion, clientes.direccion)
+       RETURNING id`,
+      [p.empresaId, c.cliente.tipoDoc, c.cliente.numeroDoc, c.cliente.nombre, c.cliente.direccion ?? null],
+    );
+    clienteId = cli.rows[0].id as string;
+  }
+
   const ins = await tx.query(
     `INSERT INTO comprobantes (
        empresa_id, serie_id, tipo_comprobante, serie, numero, fecha_emision, hora_emision, moneda,
@@ -150,7 +163,7 @@ async function emitirEnTransaccion(tx: Tx, p: PedidoEmision): Promise<string> {
      RETURNING id`,
     [
       p.empresaId, filaSerie.id, c.tipo, c.serie, numero, c.fechaEmision, c.horaEmision, c.moneda,
-      p.clienteId ?? null, c.cliente.tipoDoc, c.cliente.numeroDoc, c.cliente.nombre, c.cliente.direccion ?? null,
+      clienteId, c.cliente.tipoDoc, c.cliente.numeroDoc, c.cliente.nombre, c.cliente.direccion ?? null,
       p.marcaId ?? null, p.canalId, p.pedidoExternoId ?? null, c.formaPago.tipo,
       c.totales.gravado.toFixed(2), c.totales.exonerado.toFixed(2), c.totales.inafecto.toFixed(2),
       c.totales.igv.toFixed(2), c.totales.importeTotal.toFixed(2),
@@ -165,18 +178,32 @@ async function emitirEnTransaccion(tx: Tx, p: PedidoEmision): Promise<string> {
   );
   const id = ins.rows[0].id as string;
 
+  // Cada ítem con código (SKU) se enlaza a su producto: guarda el costo del momento (para el
+  // margen) y mueve el stock.
+  const productos = await productosPorSku(tx, p.empresaId, c.items.flatMap((i) => (i.codigo ? [i.codigo] : [])));
+  const productoDe = (codigo?: string) => (codigo ? productos.get(codigo.toUpperCase()) : undefined);
   for (const [i, item] of c.items.entries()) {
+    const producto = productoDe(item.codigo);
     await tx.query(
-      `INSERT INTO comprobante_items (comprobante_id, orden, codigo, descripcion, unidad_medida, cantidad,
-         precio_unitario_con_igv, valor_unitario_sin_igv, tipo_afectacion_igv, porcentaje_igv, valor_venta, igv, total)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
+      `INSERT INTO comprobante_items (comprobante_id, orden, producto_id, codigo, descripcion, unidad_medida, cantidad,
+         precio_unitario_con_igv, valor_unitario_sin_igv, tipo_afectacion_igv, porcentaje_igv, valor_venta, igv, total, costo_unitario)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
       [
-        id, i + 1, item.codigo ?? null, item.descripcion, item.unidad, item.cantidad.toString(),
+        id, i + 1, producto?.id ?? null, item.codigo ?? null, item.descripcion, item.unidad, item.cantidad.toString(),
         item.precioUnitario.toString(), item.valorUnitario.toString(), item.afectacion,
         item.porcentajeIgv.toFixed(2), item.valorVenta.toFixed(2), item.igv.toFixed(2), item.total.toFixed(2),
+        producto?.costoPromedio ?? null,
       ],
     );
   }
+  await moverStockPorComprobante(tx, {
+    empresaId: p.empresaId, comprobanteId: id, tipoComprobante: c.tipo,
+    ...(c.notaCredito ? { motivoNota: c.notaCredito.motivoCodigo } : {}),
+    items: c.items.map((item) => {
+      const producto = productoDe(item.codigo);
+      return { cantidad: item.cantidad, ...(producto ? { producto } : {}) };
+    }),
+  });
 
   if (c.formaPago.tipo === 'CREDITO') {
     for (const [i, cuota] of c.formaPago.cuotas.entries()) {

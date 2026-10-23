@@ -478,7 +478,29 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
 **Error de diseño corregido:** el control de acceso ahora se registra una sola vez para todo
 `/v1/*`. Una ruta inexistente sin llave responde 401, así no se revela qué rutas existen.
 
-## 13. Decisiones que siguen abiertas
+## 13. Fase 8 — Inventario, compras y margen (resultado)
+
+- **Productos por SKU** (`npm run inventario -- producto …`). El stock es la suma de movimientos;
+  los muebles a pedido pueden marcarse `--sin-stock`.
+- **Ventas:** cada ítem con código (SKU) se enlaza a su producto, guarda el costo del momento y
+  descuenta stock. **Vender sin stock no se bloquea** (puede ser a pedido): se avisa con alerta
+  **AMARILLA** al llegar al mínimo y **ROJA** si queda negativo. La alerta se cierra sola al reponer.
+- **Notas de crédito por devolución** (motivos 06 y 07) devuelven el stock; un descuento no.
+  **Anulación aceptada por SUNAT** agrega el movimiento contrario (nada se borra).
+- **Compras a proveedores** desde un JSON con los montos de la factura: se verifica que cuadren,
+  no se registra dos veces la misma factura, suma stock y recalcula el **costo promedio ponderado**.
+  La validación en SUNAT de la factura y del proveedor (habido) queda para el módulo de crédito
+  fiscal (`estado_validacion = PENDIENTE`).
+- **Margen semanal** (lunes a domingo, **estimado**, sin IGV): ventas − costo, con la **meta**
+  configurable (`npm run reporte -- meta --monto 3000`) y su % de cumplimiento. Los ítems sin
+  costo conocido se muestran aparte y no inflan el margen. Los costos **no** salen por la API.
+- **Historial de cliente** por DNI/RUC: comprobantes, total comprado y saldo por cobrar. Los
+  clientes se registran solos al emitir con documento.
+- **Mejoras de paso:** una alerta abierta se actualiza (antes quedaba con el primer mensaje);
+  el cálculo del saldo y la búsqueda de empresa por RUC quedaron en un solo lugar.
+- 256 pruebas pasando y `npm run analizar` limpio.
+
+## 14. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 

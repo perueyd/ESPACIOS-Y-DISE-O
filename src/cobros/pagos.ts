@@ -45,6 +45,13 @@ class ErrorCobro extends Error {}
 const NO_COBRABLE = ['RECHAZADO', 'ANULADO', 'ANULACION_EN_PROCESO'];
 
 /** Saldo y estado de pago de un comprobante (solo lectura). */
+/** Expresión SQL del saldo pendiente de un comprobante (alias `c`): total − pagos − notas de crédito. */
+export function sqlSaldo(c: string): string {
+  return `greatest(${c}.importe_total
+    - coalesce((SELECT sum(monto) FROM pagos p WHERE p.comprobante_id = ${c}.id AND p.anulado_en IS NULL), 0)
+    - coalesce((SELECT sum(nc.importe_total) FROM comprobantes nc WHERE nc.comprobante_referencia_id = ${c}.id AND nc.estado NOT IN ('RECHAZADO', 'ANULADO')), 0), 0)`;
+}
+
 export async function estadoCobro(q: Db | Tx, comprobanteId: string): Promise<EstadoCobro> {
   const r = await q.query(
     `SELECT c.importe_total,

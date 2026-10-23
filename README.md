@@ -14,7 +14,7 @@ de baja directamente a SUNAT (SEE - Del Contribuyente), sin proveedores externos
 | 5. PDF con QR | ✅ Lista para revisión (A4 y ticket 80 mm) |
 | 6. API y conexión con la tienda | ✅ Lista para revisión |
 | 7. Cobros y estado de pago | ✅ Lista para revisión |
-| 8. Inventario, compras y margen | En desarrollo |
+| 8. Inventario, compras y margen | ✅ Lista para revisión |
 
 Hoy el sistema valida, calcula el IGV, numera sin saltos, guarda en PostgreSQL, genera
 el XML, lo firma y lo envía a SUNAT **beta** con reintentos automáticos. Producción está
@@ -85,6 +85,17 @@ npm run llave-api -- crear --ruc 20XXXXXXXXX --canal "Tienda web"
 npm run servidor                  # API en http://localhost:3000
 ```
 
+### Inventario y reportes
+
+```bash
+npm run inventario -- producto --ruc 20XXXXXXXXX --sku TAR-001 --nombre "Tarima 2 plazas" --precio 350.00 --minimo 2
+npm run inventario -- compra   --ruc 20XXXXXXXXX --archivo compra.json   # factura del proveedor
+npm run inventario -- stock    --ruc 20XXXXXXXXX
+npm run reporte -- margen      --ruc 20XXXXXXXXX                         # margen de la semana (estimado)
+npm run reporte -- cliente     --ruc 20XXXXXXXXX --documento 12345678
+```
+Detalles y formato del JSON en el encabezado de `scripts/inventario.ts` y `scripts/reporte.ts`.
+
 ### Procesar la cola de envíos
 
 ```bash
@@ -108,7 +119,8 @@ npm run cola:procesar     # una vuelta; en producción se programa cada minuto
 | `src/api/` | API HTTP, llaves por canal y lectura de pedidos |
 | `src/empresas/` | Alta y configuración de empresas |
 | `src/cobros/` | Pagos, saldo, cuotas y vencimientos |
-| `src/reportes/` | Resumen del día y otros reportes |
+| `src/inventario/` | Productos, stock y compras a proveedores |
+| `src/reportes/` | Resumen del día, margen semanal e historial de clientes |
 | `db/migraciones/` | Estructura de la base de datos (SQL) |
 | `tests/` | Pruebas automáticas |
 | `docs/` | Plan, diseño de la base de datos y ejemplos de XML |

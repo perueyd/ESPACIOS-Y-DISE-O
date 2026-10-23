@@ -1,4 +1,5 @@
 import { createInterface } from 'node:readline';
+import type { Db } from '../../src/db/conexion.js';
 
 /** Pide un dato por teclado sin mostrarlo en pantalla (para contraseñas). */
 export function pedirOculto(pregunta: string): Promise<string> {
@@ -14,4 +15,11 @@ export function pedirOculto(pregunta: string): Promise<string> {
       ok(r);
     });
   });
+}
+
+/** Empresa por su RUC, o un error claro si no existe. */
+export async function empresaPorRuc(db: Db, ruc: string | undefined): Promise<{ id: string; razonSocial: string }> {
+  const r = await db.query(`SELECT id, razon_social FROM empresas WHERE ruc = $1`, [ruc ?? '']);
+  if (!r.rows[0]) throw new Error(`No existe la empresa ${ruc}. Créala con npm run empresa:configurar.`);
+  return { id: r.rows[0].id, razonSocial: r.rows[0].razon_social };
 }

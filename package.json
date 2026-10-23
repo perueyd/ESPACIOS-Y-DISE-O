@@ -1,6 +1,6 @@
 {
   "name": "facturador-sunat",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "private": true,
   "description": "Facturador electrónico propio para SUNAT (SEE - Del Contribuyente)",
   "type": "module",
@@ -23,6 +23,8 @@
     "empresa:configurar": "tsx scripts/empresa.ts",
     "llave-api": "tsx scripts/llave-api.ts",
     "sol:configurar": "tsx scripts/credenciales-sol.ts",
+    "inventario": "tsx scripts/inventario.ts",
+    "reporte": "tsx scripts/reporte.ts",
     "analizar": "tsc --noEmit && knip"
   },
   "dependencies": {

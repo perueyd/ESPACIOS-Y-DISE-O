@@ -17,6 +17,7 @@
 import { createHash } from 'node:crypto';
 import { crearAlerta } from '../alertas.js';
 import { recalcularCobro } from '../cobros/pagos.js';
+import { revertirStockDe } from '../inventario/stock.js';
 import { firmarComprobante, type ServiciosFirma } from '../comprobantes/firmar-comprobante.js';
 import { cargarComprobante, cargarEmpresa } from '../comprobantes/repositorio.js';
 import { enTransaccion, type Db, type Tx } from '../db/conexion.js';
@@ -472,6 +473,7 @@ async function consultarTicket(db: Db, s: ServiciosEnvio, t: Trabajo): Promise<D
     }
     await tx.query(`UPDATE ${d.tabla} SET estado = 'ACEPTADO', sunat_codigo = $2, sunat_mensaje = $3 WHERE id = $1`, [d.id, cdr.codigo, cdr.descripcion]);
     for (const it of d.comprobantes) {
+      await revertirStockDe(tx, it.id);
       await cambiarEstado(tx, it.id, 'ANULADO', `Anulación aceptada por SUNAT (${idResumen(d.prefijo, d.fechaGeneracion, d.correlativo)})`, { codigo: cdr.codigo, mensaje: cdr.descripcion });
     }
   });

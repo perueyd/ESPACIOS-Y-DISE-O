@@ -11,6 +11,7 @@
 import { parseArgs } from 'node:util';
 import { PERMISOS, crearLlaveApi, revocarLlave, type Permiso } from '../src/api/llaves.js';
 import { crearPool } from '../src/db/conexion.js';
+import { empresaPorRuc } from './lib/consola.js';
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -24,9 +25,7 @@ if (!values.ruc || !['crear', 'listar', 'revocar'].includes(accion ?? '')) {
 
 const db = crearPool();
 try {
-  const emp = await db.query(`SELECT id FROM empresas WHERE ruc = $1`, [values.ruc]);
-  const empresaId = emp.rows[0]?.id as string | undefined;
-  if (!empresaId) throw new Error(`No existe la empresa ${values.ruc}. Créala con npm run empresa:configurar.`);
+  const { id: empresaId } = await empresaPorRuc(db, values.ruc);
 
   if (accion === 'crear') {
     const canal = await db.query(`SELECT id FROM canales WHERE empresa_id = $1 AND nombre = $2`, [empresaId, values.canal ?? '']);

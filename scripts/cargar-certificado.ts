@@ -14,7 +14,7 @@ import { crearPool } from '../src/db/conexion.js';
 import { guardarCertificado } from '../src/firma/repositorio-certificados.js';
 import { diasParaVencer } from '../src/firma/certificado.js';
 import { llaveMaestraDesdeEntorno } from '../src/seguridad/cifrado.js';
-import { pedirOculto } from './lib/consola.js';
+import { empresaPorRuc, pedirOculto } from './lib/consola.js';
 
 const { values } = parseArgs({ options: { ruc: { type: 'string' }, pfx: { type: 'string' } } });
 if (!values.ruc || !values.pfx) {
@@ -25,12 +25,11 @@ if (!values.ruc || !values.pfx) {
 const db = crearPool();
 try {
   const llaveMaestra = llaveMaestraDesdeEntorno();
-  const emp = await db.query(`SELECT id, razon_social FROM empresas WHERE ruc = $1`, [values.ruc]);
-  if (!emp.rows[0]) throw new Error(`No existe una empresa con RUC ${values.ruc}.`);
+  const empresa = await empresaPorRuc(db, values.ruc);
   const pfx = await readFile(values.pfx);
   const clave = await pedirOculto('Contraseña del certificado: ');
-  const { certificado } = await guardarCertificado(db, { empresaId: emp.rows[0].id, pfx, clave, llaveMaestra });
-  console.log(`✔ Certificado cargado para ${emp.rows[0].razon_social}`);
+  const { certificado } = await guardarCertificado(db, { empresaId: empresa.id, pfx, clave, llaveMaestra });
+  console.log(`✔ Certificado cargado para ${empresa.razonSocial}`);
   console.log(`  Titular:  ${certificado.sujeto.replaceAll('\n', ', ')}`);
   console.log(`  Vence:    ${certificado.validoHasta.toISOString().slice(0, 10)} (en ${diasParaVencer(certificado)} días)`);
   console.log(`  Huella:   ${certificado.huella}`);
