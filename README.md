@@ -53,6 +53,8 @@ DATABASE_URL=... npm run db:migrar
 
 ### Cargar el certificado digital de una empresa
 
+¿Aún no lo tienes? Sigue la guía [`docs/GUIA_CERTIFICADO.md`](docs/GUIA_CERTIFICADO.md).
+
 1. Genera la llave maestra (una sola vez por ambiente) y guárdala en `LLAVE_MAESTRA`
    y en un gestor de contraseñas: `npm run llave:generar`
 2. Carga el `.pfx` (la contraseña se pide por teclado y no se muestra):
@@ -82,4 +84,5 @@ DATABASE_URL=... npm run db:migrar
 - [`CLAUDE.md`](CLAUDE.md) — reglas obligatorias del proyecto.
 - [`docs/PLAN.md`](docs/PLAN.md) — cómo funciona, arquitectura, fases y lo revisado de SUNAT.
 - [`docs/BASE_DE_DATOS.md`](docs/BASE_DE_DATOS.md) — diseño de la base de datos.
+- [`docs/GUIA_CERTIFICADO.md`](docs/GUIA_CERTIFICADO.md) — cómo obtener el certificado digital en SUNAT.
 - [`docs/ejemplos/`](docs/ejemplos/) — XML de ejemplo con datos ficticios.

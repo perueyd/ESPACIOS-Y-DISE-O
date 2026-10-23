@@ -15,7 +15,8 @@
     "db:prueba": "bash scripts/db-prueba.sh",
     "ejemplos": "tsx scripts/generar-ejemplos.ts",
     "llave:generar": "tsx scripts/generar-llave.ts",
-    "certificado:cargar": "tsx scripts/cargar-certificado.ts"
+    "certificado:cargar": "tsx scripts/cargar-certificado.ts",
+    "certificado:exportar-cer": "tsx scripts/exportar-cer.ts"
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.9.12",

@@ -1,5 +1,5 @@
 /**
- * Carga el Certificado Digital Tributario (.pfx) de una empresa, cifrado en la base.
+ * Carga el Certificado Digital Tributario (.pfx o .p12) de una empresa, cifrado en la base.
  *
  * Uso:
  *   DATABASE_URL=... LLAVE_MAESTRA=... npm run certificado:cargar -- --ruc 20XXXXXXXXX --pfx ruta/al/certificado.pfx
@@ -9,27 +9,12 @@
  * nunca lo pongas dentro de la carpeta del proyecto ni lo subas a GitHub.
  */
 import { readFile } from 'node:fs/promises';
-import { createInterface } from 'node:readline';
 import { parseArgs } from 'node:util';
 import { crearPool } from '../src/db/conexion.js';
 import { guardarCertificado } from '../src/firma/repositorio-certificados.js';
 import { diasParaVencer } from '../src/firma/certificado.js';
 import { llaveMaestraDesdeEntorno } from '../src/seguridad/cifrado.js';
-
-function pedirOculto(pregunta: string): Promise<string> {
-  if (process.env.CLAVE_PFX !== undefined) return Promise.resolve(process.env.CLAVE_PFX); // solo para automatizar
-  return new Promise((ok) => {
-    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-    const escribir = (rl as unknown as { _writeToOutput: (s: string) => void });
-    process.stdout.write(pregunta);
-    escribir._writeToOutput = () => undefined; // no mostrar lo que se escribe
-    rl.question('', (r) => {
-      rl.close();
-      process.stdout.write('\n');
-      ok(r);
-    });
-  });
-}
+import { pedirOculto } from './lib/consola.js';
 
 const { values } = parseArgs({ options: { ruc: { type: 'string' }, pfx: { type: 'string' } } });
 if (!values.ruc || !values.pfx) {
