@@ -8,6 +8,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { Hono, type Context } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
+import { secureHeaders } from 'hono/secure-headers';
 import type { Almacen } from '../almacen/almacen.js';
 import { procesarAhora, procesarCola, type ServiciosEnvio } from '../cola/procesar.js';
 import { MEDIOS_PAGO, estadoCobro, pagosDe, registrarPago, revisarVencimientos, type MedioPago } from '../cobros/pagos.js';
@@ -32,6 +33,8 @@ export interface DependenciasApi {
   enviarAlEmitir?: boolean;
   /** Pedidos por minuto por llave. */
   limitePorMinuto?: number;
+  /** Intentos con llave o clave equivocada permitidos por minuto y por dirección (20). */
+  fallosPorMinuto?: number;
 }
 
 type Variables = { llave: ContextoLlave };
@@ -43,18 +46,42 @@ function error(c: Context, estado: 400 | 401 | 403 | 404 | 409 | 413 | 422 | 429
 }
 
 /** Límite simple en memoria por llave. En varias instancias es aproximado (suficiente como freno). */
+/** Cuenta eventos por clave en ventanas de un minuto. */
 function crearLimitador(porMinuto: number) {
   const ventanas = new Map<string, { inicio: number; cuenta: number }>();
-  return (clave: string): boolean => {
-    const ahora = Date.now();
+  const vigente = (clave: string, ahora: number) => {
     const v = ventanas.get(clave);
-    if (!v || ahora - v.inicio >= 60_000) {
-      ventanas.set(clave, { inicio: ahora, cuenta: 1 });
-      return true;
-    }
-    v.cuenta++;
-    return v.cuenta <= porMinuto;
+    return v && ahora - v.inicio < 60_000 ? v : undefined;
   };
+  return {
+    /** Suma uno; false si con este se pasó del límite. */
+    contar(clave: string): boolean {
+      const ahora = Date.now();
+      // Sin limpieza, quien pruebe desde miles de direcciones haría crecer esta tabla sin fin.
+      if (ventanas.size > 10_000) {
+        for (const [k, v] of ventanas) if (ahora - v.inicio >= 60_000) ventanas.delete(k);
+      }
+      const v = vigente(clave, ahora);
+      if (!v) {
+        ventanas.set(clave, { inicio: ahora, cuenta: 1 });
+        return 1 <= porMinuto;
+      }
+      v.cuenta++;
+      return v.cuenta <= porMinuto;
+    },
+    /** ¿Ya se pasó del límite en este minuto? (sin contar) */
+    excedido(clave: string): boolean {
+      return (vigente(clave, Date.now())?.cuenta ?? 0) >= porMinuto;
+    },
+  };
+}
+
+/**
+ * Dirección de quien llama. Detrás de Render, el proxy AGREGA la IP real al final de
+ * X-Forwarded-For; lo de antes lo puede inventar el cliente, así que se toma la última.
+ */
+function ipCliente(c: Context): string {
+  return c.req.header('x-forwarded-for')?.split(',').at(-1)?.trim() || 'directo';
 }
 
 function igualesEnTiempoConstante(a: string, b: string): boolean {
@@ -66,6 +93,12 @@ function igualesEnTiempoConstante(a: string, b: string): boolean {
 export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
   const app = new Hono<{ Variables: Variables }>();
   const permitir = crearLimitador(dep.limitePorMinuto ?? 120);
+  // Límite de intentos: quien falla la llave muchas veces seguidas queda frenado un minuto,
+  // así no puede probar llaves (ni cargar la base) sin fin.
+  const fallos = crearLimitador(dep.fallosPorMinuto ?? 20);
+  const frenado = (c: Context) => error(c, 429, 'DEMASIADOS_INTENTOS', 'Demasiados intentos fallidos; espera un minuto.');
+
+  app.use('*', secureHeaders());
 
   app.onError((e, c) => {
     console.error('[api] error interno:', e instanceof Error ? e.message : e);
@@ -85,7 +118,9 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
   // Cron: procesa la cola de envíos. Protegido con su propia clave, no con llaves de canal.
   app.post('/v1/cola/procesar', async (c) => {
     const recibida = c.req.header('authorization')?.replace(/^Bearer /, '') ?? '';
-    if (!dep.claveCron || !igualesEnTiempoConstante(recibida, dep.claveCron)) return error(c, 401, 'NO_AUTORIZADO', 'Clave de cron inválida.');
+    if (!dep.claveCron || !igualesEnTiempoConstante(recibida, dep.claveCron)) {
+      return fallos.contar(ipCliente(c)) ? error(c, 401, 'NO_AUTORIZADO', 'Clave de cron inválida.') : frenado(c);
+    }
     const cola = await procesarCola(dep.db, dep.servicios);
     const cuotasRevisadas = await revisarVencimientos(dep.db);
     return c.json({ ...cola, cuotasRevisadas });
@@ -97,10 +132,13 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
   const limiteCuerpo = bodyLimit({ maxSize: 100 * 1024, onError: (c) => error(c, 413, 'DEMASIADO_GRANDE', 'El pedido supera los 100 KB.') });
   const autenticar = async (c: Context<{ Variables: Variables }>, next: () => Promise<void>) => {
     if (PUBLICAS.has(c.req.path)) return next();
+    const ip = ipCliente(c);
+    // Ya frenado: se responde sin tocar la base de datos.
+    if (fallos.excedido(ip)) return frenado(c);
     const llave = c.req.header('authorization')?.match(/^Bearer (\S+)$/)?.[1];
     const ctx = llave ? await autenticarLlave(dep.db, llave) : undefined;
-    if (!ctx) return error(c, 401, 'NO_AUTORIZADO', 'Llave de API inválida o revocada.');
-    if (!permitir(ctx.apiLlaveId)) return error(c, 429, 'DEMASIADOS_PEDIDOS', 'Demasiados pedidos por minuto; espera un momento.');
+    if (!ctx) return fallos.contar(ip) ? error(c, 401, 'NO_AUTORIZADO', 'Llave de API inválida o revocada.') : frenado(c);
+    if (!permitir.contar(ctx.apiLlaveId)) return error(c, 429, 'DEMASIADOS_PEDIDOS', 'Demasiados pedidos por minuto; espera un momento.');
     c.set('llave', ctx);
     await next();
     return undefined;

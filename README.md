@@ -17,6 +17,7 @@ de baja directamente a SUNAT (SEE - Del Contribuyente), sin proveedores externos
 | 8. Inventario, compras y margen | ✅ Aprobada |
 | 9. Listo para publicar (Supabase + Render) | ✅ Lista: falta que la publiques (`docs/PUBLICAR.md`) |
 | 10. Devoluciones | ✅ Lista para revisión |
+| Revisión de seguridad completa | ✅ Hecha (`docs/SEGURIDAD.md`) |
 
 Hoy el sistema valida, calcula el IGV, numera sin saltos, guarda en PostgreSQL, genera
 el XML, lo firma y lo envía a SUNAT **beta** con reintentos automáticos. Producción está

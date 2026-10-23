@@ -254,6 +254,24 @@ describe.skipIf(!URL_PRUEBAS)('API HTTP', () => {
       expect(r.map((x) => x.status).sort()).toEqual([404, 404, 429]);
     });
 
+    it('límite de intentos: tras muchas llaves equivocadas desde una dirección, 429 sin tocar la base', async () => {
+      const app2 = crearApp({ ...dep, fallosPorMinuto: 3 });
+      const intento = (ip: string, l = 'fk_000000000000_mala') =>
+        app2.request('/v1/comprobantes?pedido=x', { headers: { Authorization: `Bearer ${l}`, 'X-Forwarded-For': `1.2.3.4, ${ip}` } });
+      expect([(await intento('9.9.9.9')).status, (await intento('9.9.9.9')).status, (await intento('9.9.9.9')).status]).toEqual([401, 401, 401]);
+      expect((await intento('9.9.9.9')).status).toBe(429);
+      // Frenado aunque ahora traiga la llave correcta (podría haberla adivinado a la fuerza)…
+      expect((await intento('9.9.9.9', llave)).status).toBe(429);
+      // …pero otra dirección no se ve afectada. La IP real es la ÚLTIMA (la agrega el proxy).
+      expect((await intento('8.8.8.8', llave)).status).toBe(404);
+    });
+
+    it('cabeceras de seguridad en las respuestas', async () => {
+      const r = await app.request('/v1/salud');
+      expect(r.headers.get('x-content-type-options')).toBe('nosniff');
+      expect(r.headers.get('x-frame-options')).toBe('SAMEORIGIN');
+    });
+
     it('cron: sin clave correcta no procesa', async () => {
       expect((await app.request('/v1/cola/procesar', { method: 'POST' })).status).toBe(401);
       expect((await app.request('/v1/cola/procesar', { method: 'POST', headers: { Authorization: 'Bearer otra' } })).status).toBe(401);

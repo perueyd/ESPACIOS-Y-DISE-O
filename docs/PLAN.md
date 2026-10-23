@@ -551,7 +551,14 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
 - Pendiente para cuando la tienda lo necesite: devoluciones desde la API y el panel de la tienda.
 - 280 pruebas pasando y `npm run analizar` limpio.
 
-## 17. Decisiones que siguen abiertas
+## 17. Revisión de seguridad completa (resultado)
+
+Detalle en `docs/SEGURIDAD.md`. Corregido: límite de intentos fallidos por dirección (frena sin
+tocar la base), limpieza del contador de pedidos por minuto, cabeceras de seguridad y límite a lo
+que se descomprime de las respuestas de SUNAT. Pendientes con motivo: `node-forge` sin parche (no
+afecta cómo se usa), RLS, usuario de base con permisos mínimos y panel con dos pasos.
+
+## 18. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 

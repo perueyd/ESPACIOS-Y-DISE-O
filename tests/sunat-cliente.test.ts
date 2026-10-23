@@ -1,3 +1,4 @@
+import { zipSync } from 'fflate';
 import { DOMParser } from '@xmldom/xmldom';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { prepararComprobante } from '../src/comprobantes/preparar.js';
@@ -26,6 +27,12 @@ function boletaFirmada(): { nombre: string; xml: string } {
 }
 
 describe('piezas del envío', () => {
+  it('ZIP enorme al descomprimirse (bomba ZIP): se rechaza sin abrirlo', () => {
+    const bomba = Buffer.from(zipSync({ 'R-cdr.xml': new Uint8Array(6 * 1024 * 1024) }, { level: 9 }));
+    expect(bomba.length).toBeLessThan(100_000); // pesa poco comprimido…
+    expect(() => extraerXml(bomba)).toThrow(/no contiene ningún XML/); // …y no se abre
+  });
+
   it('ZIP: un solo XML con el nombre de SUNAT, ida y vuelta', () => {
     const zip = comprimirXml('20600000005-03-B001-1', '<a>ñ</a>');
     expect(extraerXml(zip)).toEqual({ nombre: '20600000005-03-B001-1.xml', xml: '<a>ñ</a>' });
