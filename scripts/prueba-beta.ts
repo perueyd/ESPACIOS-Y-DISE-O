@@ -89,7 +89,7 @@ async function enviar(caso: string, algoritmo: AlgoritmoFirma, c: Comprobante): 
     filas.push({ caso, algoritmo, resultado: cdr.resultado, detalle: `${cdr.codigo} ${cdr.descripcion}${cdr.observaciones.length ? ` | Obs: ${cdr.observaciones.join(' | ')}` : ''}` });
   } catch (e) {
     if (e instanceof ErrorRespuestaSunat) filas.push({ caso, algoritmo, resultado: tipoPorRango(e.codigo), detalle: `${e.codigo} ${e.mensajeSunat}` });
-    else if (e instanceof ErrorConexionSunat) filas.push({ caso, algoritmo, resultado: 'SIN CONEXIÓN', detalle: e.message });
+    else if (e instanceof ErrorConexionSunat) filas.push({ caso, algoritmo, resultado: e.httpEstado ? `FALLA SUNAT (${e.httpEstado})` : 'SIN CONEXIÓN', detalle: e.message });
     else throw e;
   }
 }

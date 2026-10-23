@@ -514,8 +514,11 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
   (`db/datos/sunat-codigos-error.xml`), la plantilla UBL 2.1 de Greenter
   (`github.com/thegreenter/greenter`) y la implementación de khipu homologada en SUNAT beta
   (`github.com/bacsystem/khipu`, prueba `descuentoGlobalQueAfectaLaBase_codigo02`).
-- ⚠️ **Pendiente:** confirmarlo con una boleta y una factura con descuento en SUNAT beta
-  (`npm run sunat:beta`) antes de usarlo con clientes.
+- ✅ **Confirmado en SUNAT beta (23/10/2026):** "La Factura numero F001-2791763, ha sido aceptada"
+  y "La Boleta numero B001-2791773, ha sido aceptada", ambas con descuento global. En esa corrida,
+  SUNAT beta respondió HTTP 401 con una página HTML al azar a varios envíos (incluso a casos ya
+  aceptados antes): es una falla del servidor de pruebas. El facturador ahora lo explica con un
+  mensaje claro y lo reintenta solo.
 - Las notas de crédito no llevan descuento global: se emiten con los montos ya rebajados.
 - El margen semanal resta los descuentos. 265 pruebas pasando y `npm run analizar` limpio.
 

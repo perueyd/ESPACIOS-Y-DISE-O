@@ -133,6 +133,24 @@ describe('cliente contra SUNAT simulado', () => {
     await expect(cliente.sendBill(b.nombre, b.xml)).rejects.toBeInstanceOf(ErrorConexionSunat);
   });
 
+  it('SUNAT responde una página HTML 401 (falla del servidor beta): mensaje claro y sin ruido en consola', async () => {
+    const html = '<html><head><title>401</title></head><body><h1>401 Unauthorized</h1><hr></body></html>';
+    const errores: unknown[] = [];
+    const original = console.error;
+    console.error = (...a: unknown[]) => void errores.push(a);
+    try {
+      const c = new ClienteSunatSoap({ url: 'http://sunat.invalid', credenciales: credBeta, fetch: async () => new Response(html, { status: 401 }) });
+      const b = boletaFirmada();
+      const e = (await c.sendBill(b.nombre, b.xml).catch((x: unknown) => x)) as ErrorConexionSunat;
+      expect(e).toBeInstanceOf(ErrorConexionSunat);
+      expect(e.httpEstado).toBe(401);
+      expect(e.message).toMatch(/usuario y clave.*se reintenta solo/);
+    } finally {
+      console.error = original;
+    }
+    expect(errores).toEqual([]);
+  });
+
   it('servidor apagado: error de conexión', async () => {
     const apagado = new ClienteSunatSoap({ url: 'http://127.0.0.1:1/billService', credenciales: credBeta, tiempoMaximoMs: 500 });
     const b = boletaFirmada();
