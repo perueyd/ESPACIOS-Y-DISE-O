@@ -10,11 +10,18 @@ export function comprimirXml(nombreSinExtension: string, xml: string): Buffer {
 
 export class ErrorZip extends Error {}
 
+/** Un CDR pesa pocos KB: nada razonable pasa de 5 MB una vez descomprimido. */
+const MAXIMO_DESCOMPRIMIDO = 5 * 1024 * 1024;
+
 /** Devuelve el primer archivo .xml del ZIP (el CDR que responde SUNAT). */
 export function extraerXml(zip: Buffer): { nombre: string; xml: string } {
   let archivos: Record<string, Uint8Array>;
   try {
-    archivos = unzipSync(new Uint8Array(zip));
+    // Solo se descomprimen los .xml y con tamaño acotado: una respuesta maliciosa (una
+    // "bomba ZIP" que ocupa gigas al abrirse) no puede llenar la memoria del servidor.
+    archivos = unzipSync(new Uint8Array(zip), {
+      filter: (f) => f.name.toLowerCase().endsWith('.xml') && f.originalSize <= MAXIMO_DESCOMPRIMIDO,
+    });
   } catch {
     throw new ErrorZip('La respuesta de SUNAT no es un ZIP válido.');
   }

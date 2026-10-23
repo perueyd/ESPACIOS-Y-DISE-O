@@ -103,3 +103,5 @@ emisión manual (WhatsApp, Instagram, en persona) y, a futuro, otros negocios.
 - `docs/BASE_DE_DATOS.md` — diseño de la base de datos.
 - `docs/DESARROLLO.md` — arquitectura, convenciones y cómo agregar cosas.
 - `docs/API.md` — API para canales.
+- `docs/PUBLICAR.md` — publicar en Supabase + Render + GitHub Actions.
+- `docs/SEGURIDAD.md` — revisión de seguridad: qué está protegido y qué queda pendiente.
