@@ -22,6 +22,7 @@ import { ErrorPdf } from '../pdf/representacion.js';
 import { resumenDelDia } from '../reportes/resumen-dia.js';
 import { idComprobanteLegible } from '../tipos.js';
 import { autenticarLlave, type ContextoLlave, type Permiso } from './llaves.js';
+import { leerToken, tokenComprobante } from './enlaces.js';
 import { leerPedido } from './solicitud.js';
 
 export interface DependenciasApi {
@@ -126,6 +127,25 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
     return c.json({ ...cola, cuotasRevisadas });
   });
 
+  // Enlace del cliente: ver el PDF sin llave de API, solo con un enlace firmado (ver enlaces.ts).
+  app.get('/c/:token', async (c) => {
+    const ip = ipCliente(c);
+    if (fallos.excedido(ip)) return frenado(c);
+    const id = leerToken(dep.servicios.llaveMaestra, c.req.param('token'));
+    if (!id) return fallos.contar(ip) ? error(c, 404, 'NO_ENCONTRADO', 'Enlace inválido o vencido.') : frenado(c);
+    try {
+      const r = await pdfDeComprobante(dep.db, id, { almacen: dep.servicios.almacen });
+      return c.body(new Uint8Array(r.pdf), 200, {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${r.nombreArchivo}"`,
+        'Cache-Control': 'private, no-store',
+      });
+    } catch (e) {
+      if (e instanceof ErrorPdf) return error(c, 409, 'PDF_NO_DISPONIBLE', e.message);
+      throw e;
+    }
+  });
+
   // Todo lo demás requiere una llave de canal. Se registra UNA vez para "/v1/*": registrarlo
   // también en rutas más específicas autenticaría y contaría doble cada pedido.
   const PUBLICAS = new Set(['/v1/salud', '/v1/cola/procesar']);
@@ -156,7 +176,11 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
     return r.rowCount ? id : undefined;
   }
 
-  async function respuestaComprobante(id: string) {
+  async function respuestaComprobante(peticion: Context, id: string) {
+    // Dirección pública del facturador. Detrás de Render el servidor recibe http; el
+    // cliente llegó por https (lo dice X-Forwarded-Proto).
+    const url = new URL(peticion.req.url);
+    const base = `${peticion.req.header('x-forwarded-proto')?.split(',')[0]?.trim() || url.protocol.slice(0, -1)}://${url.host}`;
     const g = await cargarComprobante(dep.db, id);
     const extra = await dep.db.query(
       `SELECT pedido_externo_id, sunat_codigo_respuesta, sunat_mensaje, sunat_observaciones, estado_pago FROM comprobantes WHERE id = $1`,
@@ -180,7 +204,11 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
       pagos: await pagosDe(dep.db, id),
       igv: c.totales.igv.toFixed(2),
       sunat: e.sunat_codigo_respuesta ? { codigo: e.sunat_codigo_respuesta, mensaje: e.sunat_mensaje, observaciones: e.sunat_observaciones ?? [] } : null,
-      enlaces: { pdf: `/v1/comprobantes/${id}/pdf`, xml: `/v1/comprobantes/${id}/xml`, cdr: `/v1/comprobantes/${id}/cdr` },
+      enlaces: {
+        pdf: `/v1/comprobantes/${id}/pdf`, xml: `/v1/comprobantes/${id}/xml`, cdr: `/v1/comprobantes/${id}/cdr`,
+        // Para el cliente: abre el PDF sin llave (firmado, vence en un año).
+        cliente: `${base}/c/${tokenComprobante(dep.servicios.llaveMaestra, id)}`,
+      },
     };
   }
 
@@ -230,7 +258,7 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
       if (pago.resultado === 'ERROR') errorPago = pago.errores.join(' ');
     }
     return c.json(
-      { ...(await respuestaComprobante(r.guardado.id)), repetido: r.resultado === 'REPETIDO', ...(errorPago ? { errorPago } : {}) },
+      { ...(await respuestaComprobante(c, r.guardado.id)), repetido: r.resultado === 'REPETIDO', ...(errorPago ? { errorPago } : {}) },
       r.resultado === 'EMITIDO' ? 201 : 200,
     );
   });
@@ -277,7 +305,7 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
       c.get('llave').empresaId, c.get('llave').canalId, pedido,
     ]);
     if (!r.rows[0]) return error(c, 404, 'NO_ENCONTRADO', 'No hay comprobante para ese pedido.');
-    return c.json(await respuestaComprobante(r.rows[0].id));
+    return c.json(await respuestaComprobante(c, r.rows[0].id));
   });
 
   app.get('/v1/comprobantes/:id', async (c) => {
@@ -285,7 +313,7 @@ export function crearApp(dep: DependenciasApi): Hono<{ Variables: Variables }> {
     if (sinPermiso) return sinPermiso;
     const id = await comprobanteDeLaLlave(c);
     if (!id) return error(c, 404, 'NO_ENCONTRADO', 'Comprobante no encontrado.');
-    return c.json(await respuestaComprobante(id));
+    return c.json(await respuestaComprobante(c, id));
   });
 
   app.get('/v1/comprobantes/:id/pdf', async (c) => {

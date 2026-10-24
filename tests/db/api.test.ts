@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { AlmacenLocal } from '../../src/almacen/almacen.js';
 import { crearApp, type DependenciasApi } from '../../src/api/app.js';
+import { tokenComprobante } from '../../src/api/enlaces.js';
 import { crearLlaveApi, revocarLlave } from '../../src/api/llaves.js';
 import type { Db } from '../../src/db/conexion.js';
 import { guardarCertificado } from '../../src/firma/repositorio-certificados.js';
@@ -105,6 +106,31 @@ describe.skipIf(!URL_PRUEBAS)('API HTTP', () => {
 
     it('solo canales de tipo API reciben llaves', async () => {
       await expect(crearLlaveApi(db, { empresaId: f.empresaId, canalId: f.canalManual })).rejects.toThrow(/tipo API/);
+    });
+  });
+
+  describe('enlace para el cliente', () => {
+    it('abre el PDF sin llave; alterado, de otro comprobante o vencido: 404', async () => {
+      // Como llega detrás de Render: http por dentro, https por fuera.
+      const emitida = await app.request('http://facturador.ejemplo.pe/v1/comprobantes', {
+        method: 'POST', body: JSON.stringify(boleta('ED-ENL')),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${llave}`, 'X-Forwarded-Proto': 'https' },
+      });
+      const b = (await emitida.json()) as { id: string; enlaces: { cliente: string } };
+      const enlace = new URL(b.enlaces.cliente);
+      expect(enlace.origin).toBe('https://facturador.ejemplo.pe'); // la dirección pública, no la interna
+      const abrir = (ruta: string) => app.request(ruta);
+      const r = await abrir(enlace.pathname);
+      expect(r.status).toBe(200);
+      expect(r.headers.get('content-type')).toBe('application/pdf');
+
+      const [id, vence, firma] = enlace.pathname.slice(3).split('.');
+      const otro = (await (await pedir('/v1/comprobantes', { cuerpo: boleta('ED-ENL2') })).json()) as { id: string };
+      expect((await abrir(`/c/${otro.id}.${vence}.${firma}`)).status).toBe(404); // la firma es de otro comprobante
+      expect((await abrir(`/c/${id}.zzzzzzz.${firma}`)).status).toBe(404); // vigencia alargada a mano
+      expect((await abrir(`/c/${id}.${vence}.${firma!.slice(0, -2)}xx`)).status).toBe(404);
+      const vencido = tokenComprobante(llaveMaestra, b.id, new Date(Date.now() - 400 * 86_400_000));
+      expect((await abrir(`/c/${vencido}`)).status).toBe(404);
     });
   });
 

@@ -105,10 +105,15 @@ Cabecera en todos (salvo `salud`): `Authorization: Bearer fk_xxxxxxxxxxxx_…`
   "total": "469.80", "igv": "71.66", "descuento": "0.00", "saldo": "0.00",
   "pagos": [{ "id": "…", "fecha": "2026-10-23", "monto": "469.80", "medio": "YAPE", "referencia": "123456", "anulado": false }],
   "sunat": { "codigo": "0", "mensaje": "La Boleta numero B001-15, ha sido aceptada", "observaciones": [] },
-  "enlaces": { "pdf": "/v1/comprobantes/7f1c…/pdf", "xml": "…/xml", "cdr": "…/cdr" },
+  "enlaces": { "pdf": "/v1/comprobantes/7f1c…/pdf", "xml": "…/xml", "cdr": "…/cdr",
+               "cliente": "https://facturador…/c/7f1c….k3x9a1.Qm…" },
   "repetido": false
 }
 ```
+
+**`enlaces.cliente`** abre el PDF **sin llave**: es para el cliente (la tienda lo muestra en el
+seguimiento del pedido; también sirve para mandarlo por WhatsApp). Va firmado: no se puede
+cambiar para ver otro comprobante, y vence al año (consultar el comprobante da uno nuevo).
 
 ## 4. Conectar la tienda (emitir solo cuando confirmas el pago Yape/Plin)
 
