@@ -6,7 +6,9 @@ services:
     name: facturador-sunat
     runtime: node
     region: virginia
-    plan: starter
+    # Gratis: se duerme tras 15 min sin visitas, pero la cola de GitHub lo visita cada 5 min.
+    # Si el negocio crece, cambiar a "starter" (US$ 7/mes) para que nunca se duerma.
+    plan: free
     buildCommand: npm ci
     # Las migraciones se aplican solas al arrancar (cada una una sola vez).
     startCommand: npm run db:migrar && npm run servidor

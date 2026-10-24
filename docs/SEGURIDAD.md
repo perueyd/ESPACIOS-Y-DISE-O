@@ -37,4 +37,4 @@ Revisión completa antes de publicar el facturador (23/10/2026). Se repite al ce
 | *Row Level Security* en PostgreSQL | Hoy el aislamiento lo hace la aplicación (probado). RLS sería una segunda barrera. | Antes de vender el servicio a otros negocios. |
 | Usuario de base con permisos mínimos | Supabase entrega un usuario con todos los permisos; un usuario sin `TRUNCATE` ni permiso para quitar disparadores reduce el daño si se filtra la conexión. | Al pasar a producción. |
 | Panel con verificación en dos pasos y roles | El panel web del facturador aún no existe (hoy: comandos + API). | Fase del panel. |
-| Repositorio público | No contiene secretos, pero conviene hacerlo privado (ver `PUBLICAR.md`). | Lo hace el dueño, en 1 minuto. |
+| Repositorio público | No contiene secretos y los respaldos van cifrados. Se mantiene público porque así GitHub Actions (cola cada 5 min) es gratis. | Hacerlo privado si se pasa a un servidor que no se duerma y la cola se mueve fuera de GitHub. |

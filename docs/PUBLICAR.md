@@ -8,12 +8,18 @@ autorización escrita y la lista de `docs/PLAN.md` (sección 6).
 | Pieza | Servicio | Costo aproximado |
 |---|---|---|
 | Base de datos (comprobantes, XML, constancias) | Supabase | Gratis para empezar |
-| Servidor del facturador (la API) | Render | US$ 7 al mes (plan *Starter*) |
-| Cola cada 5 min y respaldo diario | GitHub Actions | Gratis |
+| Servidor del facturador (la API) | Render | Gratis (plan *Free*) |
+| Cola cada 5 min y respaldo diario | GitHub Actions | Gratis (con el repositorio público) |
 
-> **Por qué Render *Starter* y no el gratis:** el plan gratis se "duerme" tras 15 minutos
-> sin uso y tarda casi un minuto en despertar. La tienda espera como máximo 8 segundos, así
-> que la primera boleta del día fallaría. Con *Starter* siempre está despierto.
+> **Plan gratis de Render:** se "duerme" tras 15 minutos sin visitas y tarda casi un minuto
+> en despertar. La cola de GitHub lo visita cada 5 minutos, así que casi siempre está
+> despierto. Si alguna vez la tienda lo encuentra dormido, la boleta queda pendiente y se
+> emite con **"Emitir de nuevo"** en el panel; no se pierde nada. Cuando el negocio lo
+> justifique, cambia a *Starter* (US$ 7 al mes) en Render y nunca se dormirá.
+>
+> **Deja el repositorio público:** GitHub da minutos ilimitados a los repositorios públicos.
+> En uno privado, la cola cada 5 minutos gastaría más que los minutos gratis del mes. El
+> repositorio no tiene ninguna clave y los respaldos van cifrados.
 
 Necesitas tu PC con la carpeta del facturador (`C:\Users\HP\facturador-sunat`) actualizada:
 ```
@@ -94,11 +100,6 @@ En GitHub → repositorio **facturador-sunat** → **Settings → Secrets and va
 | Secrets | `CLAVE_CRON` | la del paso 1 |
 | Secrets | `DATABASE_URL` | la del paso 2.3 |
 | Secrets | `RESPALDO_CLAVE` | otra clave de `npm run llave:generar`, guárdala en tu gestor |
-
-> **Recomendado: repositorio privado.** Hoy el repositorio es público. No contiene claves,
-> pero en un repositorio público cualquiera puede descargar los respaldos (van cifrados con
-> `RESPALDO_CLAVE`, así que sin esa clave no sirven). Para cerrarlo: **Settings → General →
-> Danger Zone → Change visibility → Make private.** La tienda y Render siguen funcionando igual.
 
 Luego, en la pestaña **Actions**, abre **cola** y **respaldo** y pulsa **Run workflow** una
 vez para comprobar que salen en verde ✅.
