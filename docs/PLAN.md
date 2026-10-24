@@ -453,8 +453,8 @@ el RUC del cliente esté activo. Producción puede tener validaciones adicionale
 - El endpoint del cron tiene su propia clave (`CLAVE_CRON`). Sin ella configurada, queda cerrado.
 - Los errores internos no exponen detalles al cliente; solo se registran en el servidor.
 - **Pendiente para producción:** *Row Level Security* en PostgreSQL como segunda barrera (hoy
-  el aislamiento lo hace la aplicación y está probado) y enlaces públicos temporales del PDF
-  para enviar al cliente por WhatsApp. (El almacenamiento quedó resuelto en la sección 15.)
+  el aislamiento lo hace la aplicación y está probado). (El almacenamiento quedó resuelto en la
+  sección 15 y los enlaces del PDF para el cliente en la 18.)
 
 ## 12. Fase 7 — Cobros y estado de pago (resultado)
 
@@ -558,7 +558,16 @@ tocar la base), limpieza del contador de pedidos por minuto, cabeceras de seguri
 que se descomprime de las respuestas de SUNAT. Pendientes con motivo: `node-forge` sin parche (no
 afecta cómo se usa), RLS, usuario de base con permisos mínimos y panel con dos pasos.
 
-## 18. Decisiones que siguen abiertas
+## 18. El cliente recibe su comprobante (resultado)
+
+- Cada comprobante trae `enlaces.cliente`: abre el PDF **sin llave de API**, para entregárselo al
+  cliente (seguimiento del pedido en la tienda, WhatsApp). Es un enlace firmado con HMAC-SHA256
+  (clave derivada de la `LLAVE_MAESTRA`): no se puede alterar para ver otro comprobante ni alargar
+  su vigencia (1 año). Los intentos con enlaces falsos cuentan para el límite de intentos.
+- Probado: enlace válido, alterado, de otro comprobante, vencido, y la dirección pública https
+  detrás de Render.
+
+## 19. Decisiones que siguen abiertas
 
 Mientras no respondas, se usan las decisiones provisionales de la sección 7.
 
